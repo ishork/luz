@@ -33,14 +33,15 @@ float	hit_sphere(t_sphere sphere, t_ray ray)
 		return ((-b - sqrt(d)) / (2.0f * a));
 }
 
-t_ray	gen_ray(float u, float v)
+t_ray	gen_ray(float u, float v, int width, int height)
 {
 	t_ray	ray;
 
 	ray.origin.x = 0;
 	ray.origin.y = 0;
 	ray.origin.z = 0;
-	ray.direction.x = -2.0f + (u * 4.0f);
+	ray.direction.x = -((float)width / (float)height) + (u
+			* ((float)width / (float)height) * 2.0f);
 	ray.direction.y = -1.0f + (v * 2.0f);
 	ray.direction.z = -1;
 	return (ray);
@@ -52,7 +53,7 @@ void	gen_pixel_clr(t_holder *holder, t_ray ray, t_color *hit_color, float t)
 
 	n.x = ray.origin.x + t * ray.direction.x;
 	n.y = ray.origin.y + t * ray.direction.y;
-	n.z = (ray.origin.z + t * ray.direction.z) + 1;
+	n.z = ray.origin.z + t * ray.direction.z;
 	n = normalize(n);
 	*hit_color = holder->scene.sphere.color;
 	t = (0.5f * n.z + 1.0f) * 255.0f;
@@ -75,7 +76,8 @@ void	render(t_img *img_data, int width, int height, t_holder *holder)
 		while (x < width)
 		{
 			set_color(&hit_color, 255, 255, 255);
-			ray = gen_ray((float)x / (float)width, (float)y / (float)height);
+			ray = gen_ray((float)x / (float)width, (float)y / (float)height,
+					width, height);
 			t = hit_sphere(holder->scene.sphere, ray);
 			if (t < -1.0f)
 				gen_pixel_clr(holder, ray, &hit_color, t);
