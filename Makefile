@@ -6,7 +6,7 @@
 #    By: ejuliao- <martinez@brhaka.com>             +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2021/04/08 15:31:37 by ejuliao-          #+#    #+#              #
-#    Updated: 2021/04/15 19:52:16 by ejuliao-         ###   ########.fr        #
+#    Updated: 2021/04/15 20:08:45 by ejuliao-         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -47,6 +47,7 @@ all:	$(NAME)
 libclean:
 	$(MAKE) fclean -C ./libraries/libft
 	$(MAKE) clean -C ./libraries/minilibx_opengl
+	$(MAKE) clean -C ./libraries/minilibx_linux
 
 clean:
 	rm -f $(OBJS)
