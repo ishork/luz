@@ -6,7 +6,7 @@
 /*   By: ejuliao- <martinez@brhaka.com>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/04/13 08:38:41 by ejuliao-          #+#    #+#             */
-/*   Updated: 2021/04/26 17:17:26 by ejuliao-         ###   ########.fr       */
+/*   Updated: 2021/04/26 17:59:50 by ejuliao-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -37,38 +37,38 @@ typedef struct s_color
 
 typedef struct s_plane
 {
-	t_transform		transform;
 	t_color			color;
+	t_transform		transform;
 }				t_plane;
 
 typedef struct s_sphere
 {
+	t_color			color;
 	t_transform		transform;
 	int				radius;
-	t_color			color;
 }				t_sphere;
 
 typedef struct s_square
 {
+	t_color			color;
 	t_transform		transform;
 	int				side_size;
-	t_color			color;
 }				t_square;
 
 typedef struct s_cylinder
 {
+	t_color				color;
 	t_transform			transform;
 	int					radius;
 	int					height;
-	t_color				color;
 }				t_cylinder;
 
 typedef struct s_triangle
 {
+	t_color				color;
 	t_vec3				p1;
 	t_vec3				p2;
 	t_vec3				p3;
-	t_color				color;
 }				t_triangle;
 
 typedef struct s_camera
@@ -81,9 +81,9 @@ typedef struct s_camera
 
 typedef struct s_light
 {
+	t_color			color;
 	t_transform		transform;
 	float			brightness;
-	t_color			color;
 }				t_light;
 
 /* ******************** *\
@@ -106,10 +106,10 @@ typedef struct s_object
 	void	*next;
 }				t_object;
 
-typedef struct s_generic_object
+typedef struct s_gnrc_obj
 {
 	t_color	color;
-}				t_generic_object;
+}				t_gnrc_obj;
 
 typedef struct s_scene
 {
@@ -154,6 +154,7 @@ typedef struct s_hit_record
 	t_ray	ray;
 	t_vec3	p;
 	t_vec3	normal;
+	bool	hit;
 }				t_hit_record;
 
 #endif
