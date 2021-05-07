@@ -6,7 +6,7 @@
 /*   By: ejuliao- <martinez@brhaka.com>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/04/14 11:55:19 by ejuliao-          #+#    #+#             */
-/*   Updated: 2021/05/06 15:42:36 by ejuliao-         ###   ########.fr       */
+/*   Updated: 2021/05/07 11:35:54 by ejuliao-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -43,7 +43,7 @@ t_ray	gen_ray(t_scene *scene, t_vec2 pxl, t_vec3 origin, t_vec3 dir)
 	t_vec3	u;
 	t_vec3	v;
 
-	view_up = set(0, 1, 0);
+	view_up = set(0.0f, 1.0f, 0.0f);
 	w = normalize(sub(origin, dir));
 	u = normalize(cross(view_up, w));
 	v = normalize(cross(w, u));
@@ -67,12 +67,10 @@ int x, int y)
 	int				s;
 
 	s = 0;
-	hit_color->r = 0;
-	hit_color->g = 0;
-	hit_color->b = 0;
+	*hit_color = set_color(0.0f, 0.0f, 0.0f);
 	while (s < scene->samples)
 	{
-		hit_rec.color = set_color(0, 0, 0);
+		hit_rec.color = set_color(0.0f, 0.0f, 0.0f);
 		hit_rec.l_brightness = 0.0f;
 		get_hit_color(scene, &hit_rec, x, y);
 		*hit_color = set_color(hit_color->r + hit_rec.color.r,
