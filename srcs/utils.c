@@ -6,7 +6,7 @@
 /*   By: ejuliao- <martinez@brhaka.com>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/04/10 14:51:57 by ejuliao-          #+#    #+#             */
-/*   Updated: 2021/04/29 09:01:43 by ejuliao-         ###   ########.fr       */
+/*   Updated: 2021/05/07 11:32:59 by ejuliao-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -48,4 +48,19 @@ float	length_sqrt(t_vec3 v)
 float	length(t_vec3 v)
 {
 	return (sqrt(length_sqrt(v)));
+}
+
+t_vec3	random_in_unit(void)
+{
+	t_vec3	rndm;
+
+	while (true)
+	{
+		rndm = set(drand48(), drand48(), drand48());
+		rndm = mul(rndm, 2.0f);
+		rndm = sub(rndm, set(1.0f, 1.0f, 1.0f));
+		if (length_sqrt(rndm) < 1.0f)
+			break ;
+	}
+	return (rndm);
 }
