@@ -6,20 +6,21 @@
 /*   By: ejuliao- <martinez@brhaka.com>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/04/19 10:41:02 by ejuliao-          #+#    #+#             */
-/*   Updated: 2021/04/29 09:40:57 by ejuliao-         ###   ########.fr       */
+/*   Updated: 2021/05/10 10:33:41 by ejuliao-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "minirt.h"
 
-int	exit_error(char *message)
+int	exit_error(t_scene *scene, char *message)
 {
 	printf(COLOR_RED "Error\n" COLOR_NC);
-	printf(COLOR_LIGHT_RED "%s" COLOR_NC, message);
-	exit(1);
+	printf(COLOR_LIGHT_RED "%s\n" COLOR_NC, message);
+	clean_exit(scene, 1);
+	return (1);
 }
 
-int	clean_exit(t_scene *scene)
+int	clean_exit(t_scene *scene, int code)
 {
 	printf(COLOR_CYAN "\nExiting..." COLOR_NC "\n");
 	if (scene->objects != NULL)
@@ -35,5 +36,5 @@ int	clean_exit(t_scene *scene)
 		if (scene->objects->prev != NULL)
 			free(scene->objects->prev);
 	}
-	exit(0);
+	exit(code);
 }
