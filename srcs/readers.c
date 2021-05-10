@@ -6,7 +6,7 @@
 /*   By: ejuliao- <martinez@brhaka.com>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/04/13 13:13:02 by ejuliao-          #+#    #+#             */
-/*   Updated: 2021/04/29 10:25:34 by ejuliao-         ###   ########.fr       */
+/*   Updated: 2021/05/10 10:34:43 by ejuliao-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,6 +21,8 @@ bool	read_sp(char **values, char *line, t_scene *scene)
 	{
 		object = (t_object *)malloc(sizeof(*object));
 		sphere = (t_sphere *)malloc(sizeof(*sphere));
+		if (object == NULL || sphere == NULL)
+			exit_error(scene, "MALLOC failed.");
 		sphere->transform.position = parse_xyz(values[1]);
 		sphere->radius = ft_atof(values[2]) / 2.0f;
 		sphere->color = vec3_to_rgb(parse_xyz(values[3]));
@@ -41,6 +43,8 @@ bool	read_pl(char **values, char *line, t_scene *scene)
 	{
 		object = (t_object *)malloc(sizeof(*object));
 		plane = (t_plane *)malloc(sizeof(*plane));
+		if (object == NULL || plane == NULL)
+			exit_error(scene, "MALLOC failed.");
 		plane->transform.position = parse_xyz(values[1]);
 		plane->transform.orientation = parse_xyz(values[2]);
 		plane->color = vec3_to_rgb(parse_xyz(values[3]));
@@ -61,6 +65,8 @@ bool	read_sq(char **values, char *line, t_scene *scene)
 	{
 		object = (t_object *)malloc(sizeof(*object));
 		square = (t_square *)malloc(sizeof(*square));
+		if (object == NULL || square == NULL)
+			exit_error(scene, "MALLOC failed.");
 		square->transform.position = parse_xyz(values[1]);
 		square->transform.orientation = parse_xyz(values[2]);
 		square->side_size = ft_atoi(values[3]);
@@ -82,6 +88,8 @@ bool	read_cy(char **values, char *line, t_scene *scene)
 	{
 		object = (t_object *)malloc(sizeof(*object));
 		cylinder = (t_cylinder *)malloc(sizeof(*cylinder));
+		if (object == NULL || cylinder == NULL)
+			exit_error(scene, "MALLOC failed.");
 		cylinder->transform.position = parse_xyz(values[1]);
 		cylinder->transform.orientation = parse_xyz(values[2]);
 		cylinder->radius = ft_atof(values[3]) / 2.0f;
@@ -104,6 +112,8 @@ bool	read_tr(char **values, char *line, t_scene *scene)
 	{
 		object = (t_object *)malloc(sizeof(*object));
 		triangle = (t_triangle *)malloc(sizeof(*triangle));
+		if (object == NULL || triangle == NULL)
+			exit_error(scene, "MALLOC failed.");
 		triangle->p1 = parse_xyz(values[1]);
 		triangle->p2 = parse_xyz(values[2]);
 		triangle->p3 = parse_xyz(values[3]);

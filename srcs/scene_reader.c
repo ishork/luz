@@ -6,7 +6,7 @@
 /*   By: ejuliao- <martinez@brhaka.com>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/04/12 11:04:06 by ejuliao-          #+#    #+#             */
-/*   Updated: 2021/05/10 09:45:11 by ejuliao-         ###   ########.fr       */
+/*   Updated: 2021/05/10 10:34:28 by ejuliao-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -86,6 +86,8 @@ static bool	read_l(char **values, char *line, t_scene *scene)
 	{
 		object = (t_object *)malloc(sizeof(*object));
 		light = (t_light *)malloc(sizeof(*light));
+		if (object == NULL || light == NULL)
+			exit_error(scene, "MALLOC failed.");
 		light->transform.position = parse_xyz (values[1]);
 		light->brightness = ft_atof(values[2]);
 		light->color = vec3_to_rgb(parse_xyz(values[3]));
@@ -123,5 +125,5 @@ void	read_scene(int fd, t_scene *scene)
 		free(values);
 	}
 	if (scene->x_res <= 0 || scene->y_res == 0)
-		clean_exit(scene);
+		clean_exit(scene, 0);
 }

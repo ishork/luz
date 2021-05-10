@@ -6,7 +6,7 @@
 /*   By: ejuliao- <martinez@brhaka.com>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/04/14 11:55:19 by ejuliao-          #+#    #+#             */
-/*   Updated: 2021/05/07 11:35:54 by ejuliao-         ###   ########.fr       */
+/*   Updated: 2021/05/10 10:33:18 by ejuliao-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -128,7 +128,7 @@ int	render_manager(t_scene *scene)
 		if (scene->window == NULL)
 		{
 			pthread_join(scene->thread, NULL);
-			clean_exit(scene);
+			clean_exit(scene, 0);
 		}
 		created = true;
 	}

@@ -6,7 +6,7 @@
 /*   By: ejuliao- <martinez@brhaka.com>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/04/08 15:12:09 by ejuliao-          #+#    #+#             */
-/*   Updated: 2021/05/10 09:44:04 by ejuliao-         ###   ########.fr       */
+/*   Updated: 2021/05/10 10:33:18 by ejuliao-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -38,7 +38,7 @@ int	window_key_callback(int keycode, t_scene *scene)
 	if (keycode == KEY_ESC)
 	{
 		mlx_destroy_window(scene->mlx, scene->window);
-		clean_exit(scene);
+		clean_exit(scene, 0);
 	}
 	return (0);
 }
@@ -105,7 +105,7 @@ int	main(int argc, char *argv[])
 	save = false;
 	show_window = true;
 	if (argc <= 1)
-		exit_error("Scene not specified.\n");
+		exit_error(&scene, "Scene not specified.");
 	else if (argc >= 3)
 	{
 		if (ft_memcmp(argv[2], "--save", 6) == 0)
@@ -115,7 +115,7 @@ int	main(int argc, char *argv[])
 	}
 	fd = open(argv[1], O_RDONLY);
 	if (fd == -1)
-		exit_error("The specified scene file could not be opened.\n");
+		exit_error(&scene, "The specified scene file could not be opened.");
 	init_scene(&scene);
 	read_scene(fd, &scene);
 	read_arguments(&scene, argc, argv);
