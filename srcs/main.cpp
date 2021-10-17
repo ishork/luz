@@ -1,5 +1,6 @@
 #include "Scene.hpp"
 #include "Exit.hpp"
+#include "BMP.hpp"
 #include "Luz.hpp"
 #include <fstream>
 
@@ -18,5 +19,7 @@ int	main(int argc, char *argv[])
 		//read_flags();
 	(void)argv;
 	init_Luz(scene);
+	BMP bmp("render.bmp");
+	bmp.write_file(scene);
 	return (0);
 }
