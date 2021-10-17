@@ -2,6 +2,7 @@
 # define SCENE_HPP
 
 #include <vector>
+#include "Defaults.hpp"
 #include "Camera.hpp"
 #include "Light.hpp"
 #include "Objects/Triangle.hpp"
@@ -21,6 +22,8 @@ class	Scene
 		int		getXResolution(void) const;
 		void	setYResolution(const short yRes);
 		int		getYResolution(void) const;
+		void	setPixelArray(int index, unsigned char value);
+		unsigned char*	getPixelArray() const;
 
 	private:
 		//pthread_mutex_t	_img_mutex;
@@ -45,6 +48,7 @@ class	Scene
 		std::vector<Cylinder>	_cylinders;
 		std::vector<Plane>		_planes;
 		bool			_should_calculate_light;
+		unsigned char*	_pixelArray;
 };
 
 #endif

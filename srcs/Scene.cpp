@@ -3,28 +3,18 @@
 
 Scene::Scene(void)
 {
-	//this->_img_mutex = ; //mutex
-	//this->_threads = nullptr;
 	this->_thread_count = 5;
 	this->_thread_counter = 0;
-	//this->_thread_counter_mutex = ; //mutex
-	this->_x_resolution = 0;
-	this->_y_resolution = 0;
+	this->_x_resolution = D_WIDTH;
+	this->_y_resolution = D_HEIGHT;
 	this->_rendered_rows = 0;
-	//this->_row_counter_mutex = ; //mutex
 	this->_epsilon = 0.001f;
 	this->_t_max = std::numeric_limits<float>::max();
-	this->_sample_count = 48;
-	this->_max_light_bounces = 12;
-	//this->_ambient_light = ;
-	// this->_cameras = ;
-	// this->_lights = ;
-	// this->_triangles = ;
-	// this->_squares = ;
-	// this->_spheres = ;
-	// this->_cylinders = ;
-	// this->_planes = ;
+	this->_sample_count = D_SAMPLE_COUNT;
+	this->_max_light_bounces = D_MAX_LIGHT_BOUNCES;
 	this->_should_calculate_light = true;
+
+	this->_pixelArray = new unsigned char[D_WIDTH * D_HEIGHT * 3];
 }
 
 void	Scene::addCamera(Camera camera)
@@ -60,4 +50,18 @@ void	Scene::setYResolution(const short yRes)
 int		Scene::getYResolution(void) const
 {
 	return (this->_y_resolution);
+}
+
+void	Scene::setPixelArray(int index, unsigned char value)
+{
+	// Check if index is in range. (x * y * RGB for each pixel)
+	if (index < this->_x_resolution * this->_y_resolution * 3)
+	{
+		this->_pixelArray[index] = value;
+	}
+}
+
+unsigned char*	Scene::getPixelArray(void) const
+{
+	return (this->_pixelArray);
 }
