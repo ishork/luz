@@ -1,6 +1,7 @@
 #ifndef SYSTEMSPECIFICS_HPP
 #define SYSTEMSPECIFICS_HPP
 
+// 0 => Linux & MacOS, 1 => Windows x86 and x64
 #ifndef OS
 #define OS 0
 #endif
