@@ -50,7 +50,8 @@ Developed with modern **C++ 17** using nothing but the *[standard library](https
 ### Cornell Box:
 ![Luz Cornell Box](https://user-images.githubusercontent.com/32342284/139581650-2f11c939-92e2-421a-aef8-a1de5809ca4c.jpg)
 ### Atmosphere:
-![Luz Atmosphere](https://user-images.githubusercontent.com/32342284/139664916-67791780-419d-4c59-a307-464af07496cb.jpg)
+#### Sunset gif
+![Luz Atmosphere](https://user-images.githubusercontent.com/32342284/144286415-7fbcf17a-6e2a-454e-8f7c-641998d98e4e.gif)
 ###### Raw output converted from .bmp to .jpg
 
 ---
