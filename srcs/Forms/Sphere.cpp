@@ -29,10 +29,28 @@ Vector3	Sphere::getPosition(void) const
 	return (this->_position);
 }
 
+// Sets the Sphere's position
+void    Sphere::setPosition(Vector3 position)
+{
+    this->_position = position;
+}
+
 // Returns the Sphere's radius
 double	Sphere::getRadius(void) const
 {
 	return (this->_radius);
+}
+
+// Sets the Sphere's radius
+void    Sphere::setRadius(double radius)
+{
+    this->_radius = radius;
+}
+
+// Sets the Sphere's ,aterial
+void    Sphere::setMaterial(Material material)
+{
+    this->_material = material;
 }
 
 // Calculates if the Sphere is hit by 'ray', is closer than 't_max' and farther than T_MIN

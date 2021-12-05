@@ -2,7 +2,9 @@
 #include "ANSIColors.hpp"
 #include "Utilities.hpp"
 #include "Vector3.hpp"
+#include "Forms/Sphere.hpp"
 #include <fstream>
+#include <memory>
 #include <stdio.h>
 
 static void	readSettingsSection(Scene& scene, std::ifstream& stream);
@@ -160,15 +162,17 @@ static void	readObjectsSubSection(Scene& scene, std::ifstream& stream)
         if (line.rfind("sphere=", 0) != std::string::npos)
         {
             double pX, pY, pZ, radius;
-            std::string materialName;
+            char* materialName = NULL;
 
-            if (sscanf(line.c_str(), "sphere=(%lf,%lf,%lf),%s,%lf\n", &pX, &pY, &pZ, &materialName.c_str(), &radius) != EOF)
+            if (sscanf(line.c_str(), "sphere=(%lf,%lf,%lf),%s,%lf\n", &pX, &pY, &pZ, materialName, &radius) != EOF)
             {
                 Sphere sphere;
 
-                sphere.
+                sphere.setPosition(Vector3(pX, pY, pZ));
+                // Set material
+                sphere.setRadius(radius);
 
-                scene.addHittable(sphere);
+                scene.addHittable(std::make_shared<Sphere>(sphere));
             }
         }
 	} while (!stream.eof());
