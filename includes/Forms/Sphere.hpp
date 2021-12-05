@@ -12,7 +12,10 @@ class	Sphere : public Hittable
 		Sphere(void);
 		Sphere(Vector3 position, Material material, double radius);
 		Vector3				getPosition(void) const;
+		void				setPosition(Vector3 position);
 		double				getRadius(void) const;
+		void				setRadius(double radius);
+		void				setMaterial(Material material);
 		virtual bool    	hit(Ray& ray, double t_max) const override;
 		virtual bool    	createBoundingBox(AABB& outputBoundingBox) const override;
 
