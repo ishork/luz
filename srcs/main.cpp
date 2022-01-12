@@ -33,13 +33,13 @@ int	main(int argc, char *argv[])
 		scene.setGammaCorrected(true);
 		scene.setRenderSky(SKY_ATMOSPHERE);
 		scene.setDistanceBlueness(true);
-		scene.setAtmosphere(Atmosphere(0.3, D_EARTH_RADIUS, D_ATMOSPHERE_RADIUS, D_HR, D_HM, 16, 8, 0.468)); // Only needed if Scene.Sky == SKY_ATMOSPHERE
+		scene.setAtmosphere(Atmosphere(0.28, D_EARTH_RADIUS, D_ATMOSPHERE_RADIUS, D_HR, D_HM, 64, 24, 0.468)); // Only needed if Scene.Sky == SKY_ATMOSPHERE
 		//scene.setBackgroundColor(Color(1.0, 1.0, 1.0)); // Only needed if Scene.Sky == SKY_NONE
 
 		// Coordinate system ~~ Right Hand ~~ Forward: -Z | Up: +Y | Right: +X
 
 		//scene.addCamera(Camera(Vector3(5.0, 0.0, 0.0), Vector3(-1.0, 0.0, 0.0), 65, 0.0, 1.0));
-		scene.addCamera(Camera(Vector3(7.0, D_EARTH_RADIUS + 10.0, 33.0), Vector3(-0.3, -0.31, -1.0), 65, 0.0, 1.0));
+		scene.addCamera(Camera(Vector3(7.0, D_EARTH_RADIUS + 10.5, 33.0), Vector3(-0.3, -0.31, -1.0), 65, 0.0, 1.0));
 
 		Mesh mesh = readObj("objects/koenigsegg.obj", Vector3(0.0, D_EARTH_RADIUS, 0.0));
 		scene.addHittable(std::make_shared<Mesh>(mesh));
