@@ -27,6 +27,7 @@ SRCS :=	AABB.cpp \
 		Hittables/Hittable.cpp \
 		Hittables/Landscape.cpp \
 		Hittables/Mesh.cpp \
+		Hittables/PerlinSphere.cpp \
 		Hittables/Plane.cpp \
 		Hittables/Procedural.cpp \
 		Hittables/Rectangle.cpp \

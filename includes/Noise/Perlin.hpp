@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ImageFiles/Types.hpp"
+#include "Vector3.hpp"
 #include <vector>
 #include <string>
 
@@ -10,6 +11,7 @@ class	Perlin
 		Perlin(void);
 		Perlin(unsigned int seed);
 		double	noise(double x, double y, double z) const;
+		double	noise(const Vector3& vector) const;
 		double	noise2D(double x, double y) const;
 		void	saveToFile(std::string fileName, ImageFileTypes imageFileType, double xRes, double yRes, double noiseScale) const;
 		void	saveToFile(ImageFileTypes imageFileType, double xRes, double yRes, double noiseScale) const;
