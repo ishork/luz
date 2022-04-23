@@ -107,6 +107,11 @@ double Perlin::noise(double x, double y, double z) const
 	return ((output + 1.0) / 2.0);
 }
 
+double	Perlin::noise(const Vector3& vector) const
+{
+	return (this->noise(vector.getX(), vector.getY(), vector.getZ()));
+}
+
 // 2D noise can have any Z value
 double Perlin::noise2D(double x, double y) const
 {

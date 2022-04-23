@@ -4,6 +4,7 @@
 #include "SceneFile/SceneFile.hpp"
 #include "OBJReader.hpp"
 #include "Hittables/Triangle.hpp"
+#include "Hittables/PerlinSphere.hpp"
 #include "Hittables/Plane.hpp"
 #include "Hittables/Sphere.hpp"
 #include "Hittables/Mesh.hpp"
@@ -38,7 +39,7 @@ int	main(int argc, char *argv[])
 	{
 		scene.setYResolution(500);
 		scene.setXResolution(500);
-		scene.setSampleCount(50);
+		scene.setSampleCount(10);
 		scene.setGammaCorrected(true);
 		scene.setRenderSky(SKY_NONE);
 		scene.setDistanceBlueness(false);
@@ -47,16 +48,17 @@ int	main(int argc, char *argv[])
 
 		// Coordinate system ~~ Right Hand ~~ Forward: -Z | Up: +Y | Right: +X
 
-		scene.addCamera(Camera(Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.0, -1.0), 65, 0.0, 20.0));
+		scene.addCamera(Camera(Vector3(0.0, 0.0, 2.0), Vector3(0.0, 0.0, -1.0), 65, 0.0, 20.0));
 
-		scene.addHittable(std::make_shared<Sphere>(
-			Vector3(0.0, 0.0, -1.0),
-			0.5,
-			std::make_shared<Lambertian>(Color(0.3, 0.8, 0.3))
+		scene.addHittable(std::make_shared<PerlinSphere>(
+			Vector3(0.0, 0.0, 0.0),
+			1.0,
+			std::make_shared<Lambertian>(Color(0.3, 0.8, 0.3)),
+			42
 		));
 
 		scene.addHittable(std::make_shared<Sphere>(
-			Vector3(0.0, 2.0, 1.0),
+			Vector3(0.0, 2.0, 3.0),
 			0.5,
 			std::make_shared<Emissive>(Color(1.0, 1.0, 1.0), 3.0)
 		));
