@@ -116,23 +116,27 @@ void	FlagsParser::_parseDetach(void)
 	auto it = this->_findFlag(_stringVec{"--detach", "--detached", "-d"});
 	if (it != this->_args.end())
 	{
-		int pid = fork();
-		if (pid < 0)
-		{
-			std::cerr << "An error occurred while detaching the process." << std::endl;
-			exit(EXIT_FAILURE);
-		}
-		else if (pid > 0) // Exits the original process
-		{
-			std::cout << "Process detached with success. PID: " << pid << std::endl;
-			exit(EXIT_SUCCESS);
-		}
-		else // Sets the new process as the group owner and closes stdin, stdou and stderr.
-		{
-			setsid();
-			close(STDIN_FILENO);
-			close(STDOUT_FILENO);
-			close(STDERR_FILENO);
-		}
+		#ifdef __linux__
+			int pid = fork();
+			if (pid < 0)
+			{
+				std::cerr << "An error occurred while detaching the process." << std::endl;
+				exit(EXIT_FAILURE);
+			}
+			else if (pid > 0) // Exits the original process
+			{
+				std::cout << "Process detached with success. PID: " << pid << std::endl;
+				exit(EXIT_SUCCESS);
+			}
+			else // Sets the new process as the group owner and closes stdin, stdou and stderr.
+			{
+				setsid();
+				close(STDIN_FILENO);
+				close(STDOUT_FILENO);
+				close(STDERR_FILENO);
+			}
+		#else
+			std::cerr << "Detaching is not supported on this platform." << std::endl << "Continuing without detaching." << std::endl;
+		#endif
 	}
 }

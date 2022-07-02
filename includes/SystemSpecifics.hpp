@@ -5,6 +5,11 @@
 #define OS 0
 #endif
 
+#if os == 0
+#define __linux__
+#endif
+
 #if OS == 1
 #include "WindowsSpecifics.hpp"
+#define __windows__
 #endif
