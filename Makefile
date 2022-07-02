@@ -80,6 +80,7 @@ SRCS :=	AABB.cpp \
 OBJS := $(patsubst %.cpp, $(OBJS_DIR)/%.o, $(SRCS))
 DPND := $(OBJS:.o=.d)
 
+COMPILER = clang++
 INCLUDES := -Iincludes
 GENERAL_FLAGS := -std=c++2a
 WWW_FLAGS := -Wall -Wextra -Werror
@@ -131,13 +132,12 @@ else
 	PRE_EXECUTE = clean
 endif
 
-# Reads COMPILER option from TMP_FILE if user hasn't provided it
-# x86_64-w64-mingw32-g++ => 64bit
-ifndef COMPILER
+# Reads WINDOWS option from TMP_FILE if user hasn't provided it
+ifndef WINDOWS
 	ifeq ($(shell awk 'NR==4 {print $$3}' $(TMP_FILE)),1)
-		COMPILER = 1
+		WINDOWS = 1
 	else
-		COMPILER = 0
+		WINDOWS = 0
 	endif
 else
 	PRE_EXECUTE = clean
@@ -179,12 +179,10 @@ ifeq ($(NO_FLAGS),1)
 	WWW_FLAGS =
 endif
 
-# Configure COMPILER
-ifeq ($(COMPILER),1)
-	_COMPILER = i686-w64-mingw32-g++
-	COMPILER_FLAGS = -U__STRICT_ANSI__ -static-libgcc -static-libstdc++
-else
-	_COMPILER = clang++
+# Set flags for Windows compilation
+ifeq ($(WINDOWS),1)
+	COMPILER = x86_64-w64-mingw32-g++-posix
+	COMPILER_FLAGS = -U__STRICT_ANSI__ -static-libgcc -static-libstdc++ -static
 endif
 
 # Configure FAST_COMPILATION
@@ -192,7 +190,7 @@ ifeq ($(FAST_COMPILATION),1)
 	OPT_FLAGS =
 endif
 
-$(shell echo -e -n "DEBUG = $(DEBUG)\nSANITIZER = $(SANITIZER)\nNO_FLAGS = $(NO_FLAGS)\nCOMPILER = $(COMPILER)\nFAST_COMPILATION = $(FAST_COMPILATION)" > $(TMP_FILE))
+$(shell echo -e -n "DEBUG = $(DEBUG)\nSANITIZER = $(SANITIZER)\nNO_FLAGS = $(NO_FLAGS)\nWINDOWS = $(WINDOWS)\nFAST_COMPILATION = $(FAST_COMPILATION)" > $(TMP_FILE))
 
 ifeq ($(shell uname -s),Linux)
 	DEBUGGER = gdb
@@ -212,11 +210,11 @@ all: $(PRE_EXECUTE)
 
 $(OBJS_DIR)/%.o: $(SRCS_DIR)/%.cpp
 	$(shell [ ! -d $(@D) ] && mkdir -p $(@D))
-	$(_COMPILER) $(COMPILER_FLAGS) $(WWW_FLAGS) $(GENERAL_FLAGS) $(OPT_FLAGS) $(INC_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -DOS=$(COMPILER) -c $< -o $@
+	$(COMPILER) $(COMPILER_FLAGS) $(WWW_FLAGS) $(GENERAL_FLAGS) $(OPT_FLAGS) $(INC_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -DOS=$(WINDOWS) -c $< -o $@
 
 $(NAME): $(OBJS)
 	@printf "\n[\e[1;34mCompiling $(NAME)\e[0m]\n\n"
-	$(_COMPILER) $(COMPILER_FLAGS) $(WWW_FLAGS) $(GENERAL_FLAGS) $(OPT_FLAGS) $(INC_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJS) -DOS=$(COMPILER) -o $(NAME)
+	$(COMPILER) $(COMPILER_FLAGS) $(WWW_FLAGS) $(GENERAL_FLAGS) $(OPT_FLAGS) $(INC_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJS) -DOS=$(WINDOWS) -o $(NAME)
 
 	@printf "\n[\e[0;32mCompilation done. $(NAME) ready.\e[0m]\n"
 
@@ -258,11 +256,11 @@ sanitizer:
 
 .PHONY: windows
 windows:
-	@$(MAKE) all COMPILER=1 --no-print-directory
+	@$(MAKE) all WINDOWS=1 --no-print-directory
 
 .PHONY: unix
 unix:
-	@$(MAKE) all COMPILER=0 --no-print-directory
+	@$(MAKE) all --no-print-directory
 
 .PHONY: fast
 fast:

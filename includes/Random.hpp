@@ -16,7 +16,7 @@ namespace	Random
 	Vector3			pointInsideUnitDisk(void);
 
 	namespace {
-		unsigned int	seed;
-		bool			isSeeded = false;
+		[[maybe_unused]] unsigned int	seed;
+		[[maybe_unused]] bool			isSeeded = false;
 	}
 }
