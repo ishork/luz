@@ -4,7 +4,7 @@
 
 Developed with modern **C++ 20** using nothing but the language itself.
 
-![Cornell Box 2048 Samples](https://user-images.githubusercontent.com/32342284/176393730-df3e0ab6-f514-4ce0-bfce-80a8014f3279.jpg)
+![Cornell Box 4200samples](https://user-images.githubusercontent.com/32342284/177021592-6b07fe41-f90f-4cc0-8fc9-c6865d8f8f35.jpg)
 ###### Raw output converted from bmp to jpg
 ---
 
