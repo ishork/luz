@@ -74,11 +74,11 @@ void	FlagsParser::_parseBenchmark(Scene& scene)
 
 		SceneHelpers::benchmark(scene);
 
-		scene.getImage()->setWidth(1000);
-		scene.getImage()->setHeight(1000);
+		scene.getImage()->setWidth(200);
+		scene.getImage()->setHeight(200);
 		scene.getImage()->initialize();
-		scene.setSampleCount(2048);
-		scene.setMaxLightBounces(64);
+		scene.setSampleCount(50);
+		scene.setMaxLightBounces(8);
 		scene.setGammaCorrected(true);
 		scene.setToneMapped(true);
 		scene.setRenderSky(SKY_NONE);

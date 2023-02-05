@@ -260,13 +260,11 @@ fast:
 benchmark:
 	@printf "[\e[1;34mBuilding container...\e[0m]\n\n"
 
-	@docker build -t luz-benchmark -f ./docker/benchmark/Dockerfile .
-	@# @docker run --interactive --tty --entrypoint /bin/sh luz-benchmark
+	@docker build -t luz-benchmark-image -f ./docker/benchmark/Dockerfile .
 
 	@printf "\n[\e[1;34mStarting container...\e[0m]\n\n"
 
-	@docker run --memory=1g --memory-swap=1g --kernel-memory=1g --memory-swappiness=0 --cpus=2 luz-benchmark
-	@# 1gb ram, no swap, 2 cores
+	@docker run --rm --memory=1g --memory-swap=1g --kernel-memory=1g --memory-swappiness=0 --cpus=2 luz-benchmark-image
 
 	@printf "\n[\e[0;32mDone.\e[0m]\n"
 
