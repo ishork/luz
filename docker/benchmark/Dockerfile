@@ -10,9 +10,7 @@ COPY ./includes /Luz/includes
 COPY ./Makefile /Luz
 
 # Copy scripts
-COPY ./docker/build.sh /
-RUN chmod +x /build.sh
-COPY ./docker/benchmark/run.sh /
-RUN chmod +x /run.sh
+COPY ./docker/benchmark/benchmark.sh /
+RUN chmod +x /benchmark.sh
 
-CMD /build.sh && /run.sh
+CMD /benchmark.sh

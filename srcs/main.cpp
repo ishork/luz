@@ -26,6 +26,7 @@
 #include "Charts/Bar.hpp"
 #include "FlagsParser.hpp"
 #include "Scene/SceneHelpers.hpp"
+#include "Random.hpp"
 #include <memory>
 
 // Main function
@@ -35,6 +36,7 @@ int	main(int argc, char *argv[])
 	scene.setStorePixelRenderTimes(true); // Test so it works for scene files (before it's natively there)
 
 	FlagsParser(argc, argv).parse(scene);
+	// std::cout << Random::doubleFloat() << std::endl;
 	if (!scene.getIsFromFile())
 	{
 		scene.getImage()->setWidth(500);
@@ -95,10 +97,13 @@ int	main(int argc, char *argv[])
 
 	if (Renderer::render(scene))
 	{
-		// Writes render image file
-		scene.getImage()->saveToBMP("render");
-		std::unique_ptr<Image> debugTime = scene.generateRenderTimeImage();
-		debugTime->saveToBMP("renderTime");
+		if (!scene.getBenchmarkMode())
+		{
+			// Writes render image file
+			scene.getImage()->saveToBMP("render");
+			std::unique_ptr<Image> debugTime = scene.generateRenderTimeImage();
+			debugTime->saveToBMP("renderTime");
+		}
 	}
 
 	return (0);
