@@ -6,21 +6,22 @@
 #include <algorithm>
 
 // Static function prototypes
-static bool	boxXCompare(std::shared_ptr<Hittable> hittable1, std::shared_ptr<Hittable> hittable2);
-static bool	boxYCompare(std::shared_ptr<Hittable> hittable1, std::shared_ptr<Hittable> hittable2);
-static bool	boxZCompare(std::shared_ptr<Hittable> hittable1, std::shared_ptr<Hittable> hittable2);
-static bool	boxCompare(std::shared_ptr<Hittable> hittable1, std::shared_ptr<Hittable> hittable2, int axis);
+static bool	boxXCompare(const std::shared_ptr<Hittable>& hittable1, const std::shared_ptr<Hittable>& hittable2);
+static bool	boxYCompare(const std::shared_ptr<Hittable>& hittable1, const std::shared_ptr<Hittable>& hittable2);
+static bool	boxZCompare(const std::shared_ptr<Hittable>& hittable1, const std::shared_ptr<Hittable>& hittable2);
+static bool	boxCompare(const std::shared_ptr<Hittable>& hittable1, const std::shared_ptr<Hittable>& hittable2, int axis);
 
 /*
 	Constructors
 */
 
 // Constructor overload, only calls the actual constructor
-BVHNode::BVHNode(std::vector<std::shared_ptr<Hittable>> hittables) : BVHNode(hittables, 0, hittables.size())
+BVHNode::BVHNode(std::vector<std::shared_ptr<Hittable>> hittables)
+	: BVHNode(hittables, 0, hittables.size())
 {}
 
 // Constructs the BVHNode
-BVHNode::BVHNode(std::vector<std::shared_ptr<Hittable>> hittables, size_t start, size_t end)
+BVHNode::BVHNode(std::vector<std::shared_ptr<Hittable>>& hittables, size_t start, size_t end)
 {
 	unsigned int axis = randomEngine.integer(0, 2);
 	auto comparator = (axis == 0) ? boxXCompare : (axis == 1) ? boxYCompare : boxZCompare;
@@ -41,11 +42,12 @@ BVHNode::BVHNode(std::vector<std::shared_ptr<Hittable>> hittables, size_t start,
 		std::sort(hittables.begin() + start, hittables.begin() + end, comparator);
 
 		auto mid = start + hittableCount / 2;
-		this->_childs.push_back(std::make_shared<BVHNode>(hittables, start, mid));
-		this->_childs.push_back(std::make_shared<BVHNode>(hittables, mid, end));
+		this->_childs.push_back(std::shared_ptr<Hittable>(new BVHNode(hittables, start, mid)));
+		this->_childs.push_back(std::shared_ptr<Hittable>(new BVHNode(hittables, mid, end)));
 	}
 
 	std::vector<AABB>	aabbs;
+	aabbs.reserve(this->_childs.size());
 
 	for (auto& child : this->_childs)
 	{
@@ -62,25 +64,25 @@ BVHNode::BVHNode(std::vector<std::shared_ptr<Hittable>> hittables, size_t start,
 }
 
 // Comparator for the BVH box at the X axis
-static bool	boxXCompare(std::shared_ptr<Hittable> hittable1, std::shared_ptr<Hittable> hittable2)
+static bool	boxXCompare(const std::shared_ptr<Hittable>& hittable1, const std::shared_ptr<Hittable>& hittable2)
 {
 	return (boxCompare(hittable1, hittable2, 0));
 }
 
 // Comparator for the BVH box at the Y axis
-static bool	boxYCompare(std::shared_ptr<Hittable> hittable1, std::shared_ptr<Hittable> hittable2)
+static bool	boxYCompare(const std::shared_ptr<Hittable>& hittable1, const std::shared_ptr<Hittable>& hittable2)
 {
 	return (boxCompare(hittable1, hittable2, 1));
 }
 
 // Comparator for the BVH box at the Z axis
-static bool	boxZCompare(std::shared_ptr<Hittable> hittable1, std::shared_ptr<Hittable> hittable2)
+static bool	boxZCompare(const std::shared_ptr<Hittable>& hittable1, const std::shared_ptr<Hittable>& hittable2)
 {
 	return (boxCompare(hittable1, hittable2, 2));
 }
 
 // Compares 'hittable1' and 'hittable2'
-static bool	boxCompare(std::shared_ptr<Hittable> hittable1, std::shared_ptr<Hittable> hittable2, int axis)
+static bool	boxCompare(const std::shared_ptr<Hittable>& hittable1, const std::shared_ptr<Hittable>& hittable2, int axis)
 {
 	AABB	boxA;
 	AABB	boxB;

@@ -2,12 +2,16 @@
 #include "SceneFileInternal.hpp"
 #include "ANSIColors.hpp"
 #include "Utilities.hpp"
+#include <algorithm>
 #include <fstream>
 #include <filesystem>
 #include <stdexcept>
+#include <thread>
 
 namespace
 {
+	const std::size_t	MAX_CONCURRENT_MESH_LOADS = 4;
+
 	std::size_t	countSceneMeshLoads(const std::string& fileName)
 	{
 		std::ifstream stream(fileName);
@@ -30,6 +34,20 @@ namespace
 
 		return (meshLoads);
 	}
+
+	std::size_t	meshLoadConcurrency(std::size_t meshLoads)
+	{
+		if (meshLoads <= 1)
+		{
+			return (1);
+		}
+
+		const unsigned int hardwareConcurrency = std::thread::hardware_concurrency();
+		const std::size_t hardwareLimit = hardwareConcurrency == 0 ? 2 : hardwareConcurrency;
+		const std::size_t cappedHardwareLimit = std::min(hardwareLimit, MAX_CONCURRENT_MESH_LOADS);
+
+		return (std::max<std::size_t>(1, std::min(meshLoads, cappedHardwareLimit)));
+	}
 }
 
 // Searches and reads / parses the Scene file named 'fileName' into 'Scene' (searches in the current directory)
@@ -49,6 +67,7 @@ void	SceneFile::read(Scene& scene, std::string fileName)
 	internal::SceneFileContext context;
 	context.baseDirectory = scenePath.parent_path();
 	meshLoadProgress.total = countSceneMeshLoads(fileName);
+	context.meshLoadConcurrency = meshLoadConcurrency(meshLoadProgress.total);
 	if (meshLoadProgress.total > 0)
 	{
 		context.meshLoadProgress = &meshLoadProgress;

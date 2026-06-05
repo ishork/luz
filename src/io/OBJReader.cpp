@@ -20,13 +20,13 @@
 #include <iostream>
 #include <stdexcept>
 #include <cmath>
-
-static std::size_t	parseObjFile(Mesh& mesh, std::ifstream& stream, Vector3 positionOffset, Vector3 rotationDegrees, Vector3 scale, std::shared_ptr<Material> material);
+#include <utility>
 
 namespace
 {
 	const double	DEGENERATE_TRIANGLE_EPSILON_SQUARED = 1e-24;
 	const double	DEGREES_TO_RADIANS = 3.14159265358979323846 / 180.0;
+	const double	TRANSFORM_EPSILON = 1e-12;
 
 	struct ObjFaceVertex
 	{
@@ -34,60 +34,129 @@ namespace
 		int	normalIndex = -1;
 	};
 
-	Vector3	rotateVertex(Vector3 vertex, Vector3 rotationDegrees)
+	bool	nearlyEqual(double a, double b)
 	{
-		const double xRadians = rotationDegrees.getX() * DEGREES_TO_RADIANS;
-		const double yRadians = rotationDegrees.getY() * DEGREES_TO_RADIANS;
-		const double zRadians = rotationDegrees.getZ() * DEGREES_TO_RADIANS;
-
-		double x = vertex.getX();
-		double y = vertex.getY();
-		double z = vertex.getZ();
-
-		const double cosX = std::cos(xRadians);
-		const double sinX = std::sin(xRadians);
-		double nextY = (y * cosX) - (z * sinX);
-		double nextZ = (y * sinX) + (z * cosX);
-		y = nextY;
-		z = nextZ;
-
-		const double cosY = std::cos(yRadians);
-		const double sinY = std::sin(yRadians);
-		double nextX = (x * cosY) + (z * sinY);
-		nextZ = (-x * sinY) + (z * cosY);
-		x = nextX;
-		z = nextZ;
-
-		const double cosZ = std::cos(zRadians);
-		const double sinZ = std::sin(zRadians);
-		nextX = (x * cosZ) - (y * sinZ);
-		nextY = (x * sinZ) + (y * cosZ);
-		x = nextX;
-		y = nextY;
-
-		return (Vector3(x, y, z));
+		return (std::fabs(a - b) <= TRANSFORM_EPSILON);
 	}
 
-	Vector3	transformVertex(Vector3 vertex, Vector3 positionOffset, Vector3 rotationDegrees, Vector3 scale)
+	bool	isZeroVector(const Vector3& vector)
 	{
-		vertex = vertex * scale;
-		vertex = rotateVertex(vertex, rotationDegrees);
-
-		return (vertex + positionOffset);
+		return (
+			nearlyEqual(vector.getX(), 0.0)
+			&& nearlyEqual(vector.getY(), 0.0)
+			&& nearlyEqual(vector.getZ(), 0.0)
+		);
 	}
 
-	Vector3	transformNormal(Vector3 normal, Vector3 rotationDegrees, Vector3 scale)
+	bool	isUnitScale(const Vector3& scale)
 	{
-		normal.setX(scale.getX() == 0.0 ? normal.getX() : normal.getX() / scale.getX());
-		normal.setY(scale.getY() == 0.0 ? normal.getY() : normal.getY() / scale.getY());
-		normal.setZ(scale.getZ() == 0.0 ? normal.getZ() : normal.getZ() / scale.getZ());
-		normal = rotateVertex(normal, rotationDegrees);
-		if (Utilities::vectorLengthSquared(normal) <= DEGENERATE_TRIANGLE_EPSILON_SQUARED)
+		return (
+			nearlyEqual(scale.getX(), 1.0)
+			&& nearlyEqual(scale.getY(), 1.0)
+			&& nearlyEqual(scale.getZ(), 1.0)
+		);
+	}
+
+	Vector3	normalizedOrZero(const Vector3& normal)
+	{
+		const double lengthSquared = Utilities::vectorLengthSquared(normal);
+
+		if (lengthSquared <= DEGENERATE_TRIANGLE_EPSILON_SQUARED)
 		{
 			return (Vector3());
 		}
+		if (nearlyEqual(lengthSquared, 1.0))
+		{
+			return (normal);
+		}
 		return (Utilities::normalize(normal));
 	}
+
+	struct ObjTransform
+	{
+		Vector3	positionOffset;
+		Vector3	scale;
+		double	cosX = 1.0;
+		double	sinX = 0.0;
+		double	cosY = 1.0;
+		double	sinY = 0.0;
+		double	cosZ = 1.0;
+		double	sinZ = 0.0;
+		bool	identity = true;
+		bool	normalIdentity = true;
+
+		ObjTransform(Vector3 positionOffset, Vector3 rotationDegrees, Vector3 scale)
+			: positionOffset(positionOffset), scale(scale)
+		{
+			const bool rotationIdentity = isZeroVector(rotationDegrees);
+			const bool scaleIdentity = isUnitScale(scale);
+
+			this->identity = isZeroVector(positionOffset) && rotationIdentity && scaleIdentity;
+			this->normalIdentity = rotationIdentity && scaleIdentity;
+			if (rotationIdentity)
+			{
+				return;
+			}
+
+			const double xRadians = rotationDegrees.getX() * DEGREES_TO_RADIANS;
+			const double yRadians = rotationDegrees.getY() * DEGREES_TO_RADIANS;
+			const double zRadians = rotationDegrees.getZ() * DEGREES_TO_RADIANS;
+
+			this->cosX = std::cos(xRadians);
+			this->sinX = std::sin(xRadians);
+			this->cosY = std::cos(yRadians);
+			this->sinY = std::sin(yRadians);
+			this->cosZ = std::cos(zRadians);
+			this->sinZ = std::sin(zRadians);
+		}
+
+		Vector3	rotate(Vector3 vector) const
+		{
+			double x = vector.getX();
+			double y = vector.getY();
+			double z = vector.getZ();
+
+			double nextY = (y * this->cosX) - (z * this->sinX);
+			double nextZ = (y * this->sinX) + (z * this->cosX);
+			y = nextY;
+			z = nextZ;
+
+			double nextX = (x * this->cosY) + (z * this->sinY);
+			nextZ = (-x * this->sinY) + (z * this->cosY);
+			x = nextX;
+			z = nextZ;
+
+			nextX = (x * this->cosZ) - (y * this->sinZ);
+			nextY = (x * this->sinZ) + (y * this->cosZ);
+			x = nextX;
+			y = nextY;
+
+			return (Vector3(x, y, z));
+		}
+
+		Vector3	transformVertex(const Vector3& vertex) const
+		{
+			if (this->identity)
+			{
+				return (vertex);
+			}
+			return (this->rotate(vertex * this->scale) + this->positionOffset);
+		}
+
+		Vector3	transformNormal(Vector3 normal) const
+		{
+			if (this->normalIdentity)
+			{
+				return (normalizedOrZero(normal));
+			}
+			normal.setX(this->scale.getX() == 0.0 ? normal.getX() : normal.getX() / this->scale.getX());
+			normal.setY(this->scale.getY() == 0.0 ? normal.getY() : normal.getY() / this->scale.getY());
+			normal.setZ(this->scale.getZ() == 0.0 ? normal.getZ() : normal.getZ() / this->scale.getZ());
+			return (normalizedOrZero(this->rotate(normal)));
+		}
+	};
+
+	std::size_t	parseObjFile(Mesh& mesh, std::ifstream& stream, const ObjTransform& transform, std::shared_ptr<Material> material);
 
 	Vector3	parseVectorValues(const std::string& value, const std::string& line)
 	{
@@ -146,36 +215,34 @@ namespace
 		return (faceVertex);
 	}
 
-	std::shared_ptr<Triangle>	buildTriangle(
+	Triangle	buildTriangle(
 		const std::vector<Vector3>& vertices,
 		const std::vector<Vector3>& normals,
 		const ObjFaceVertex& faceVertex0,
 		const ObjFaceVertex& faceVertex1,
 		const ObjFaceVertex& faceVertex2,
-		Vector3 positionOffset,
-		Vector3 rotationDegrees,
-		Vector3 scale,
+		const ObjTransform& transform,
 		std::shared_ptr<Material> material
 	)
 	{
-		const Vector3 vertex0 = transformVertex(vertices.at(faceVertex0.vertexIndex), positionOffset, rotationDegrees, scale);
-		const Vector3 vertex1 = transformVertex(vertices.at(faceVertex1.vertexIndex), positionOffset, rotationDegrees, scale);
-		const Vector3 vertex2 = transformVertex(vertices.at(faceVertex2.vertexIndex), positionOffset, rotationDegrees, scale);
+		const Vector3 vertex0 = transform.transformVertex(vertices.at(faceVertex0.vertexIndex));
+		const Vector3 vertex1 = transform.transformVertex(vertices.at(faceVertex1.vertexIndex));
+		const Vector3 vertex2 = transform.transformVertex(vertices.at(faceVertex2.vertexIndex));
 
 		if (faceVertex0.normalIndex >= 0 && faceVertex1.normalIndex >= 0 && faceVertex2.normalIndex >= 0)
 		{
-			return (std::make_shared<Triangle>(
+			return (Triangle(
 				vertex0,
 				vertex1,
 				vertex2,
-				transformNormal(normals.at(faceVertex0.normalIndex), rotationDegrees, scale),
-				transformNormal(normals.at(faceVertex1.normalIndex), rotationDegrees, scale),
-				transformNormal(normals.at(faceVertex2.normalIndex), rotationDegrees, scale),
+				transform.transformNormal(normals.at(faceVertex0.normalIndex)),
+				transform.transformNormal(normals.at(faceVertex1.normalIndex)),
+				transform.transformNormal(normals.at(faceVertex2.normalIndex)),
 				material
 			));
 		}
 
-		return (std::make_shared<Triangle>(vertex0, vertex1, vertex2, material));
+		return (Triangle(vertex0, vertex1, vertex2, material));
 	}
 
 	void	printMeshLoadProgress(const ObjLoadProgress& progress)
@@ -275,7 +342,8 @@ Mesh	readObj(
 	}
 
 	clock.start();
-	const std::size_t skippedDegenerateTriangles = parseObjFile(mesh, stream, positionOffset, rotationDegrees, scale, material);
+	const ObjTransform transform(positionOffset, rotationDegrees, scale);
+	const std::size_t skippedDegenerateTriangles = parseObjFile(mesh, stream, transform, material);
 
 	if (useProgress)
 	{
@@ -297,12 +365,14 @@ Mesh	readObj(
 	return (mesh);
 }
 
-static std::size_t	parseObjFile(Mesh& mesh, std::ifstream& stream, Vector3 positionOffset, Vector3 rotationDegrees, Vector3 scale, std::shared_ptr<Material> material)
+namespace
+{
+std::size_t	parseObjFile(Mesh& mesh, std::ifstream& stream, const ObjTransform& transform, std::shared_ptr<Material> material)
 {
 	std::string line;
 	std::vector<Vector3> vertices;
 	std::vector<Vector3> normals;
-	std::vector<std::shared_ptr<Hittable>> triangles;
+	std::vector<Triangle> triangles;
 	std::size_t skippedDegenerateTriangles = 0;
 
 	do
@@ -328,6 +398,7 @@ static std::size_t	parseObjFile(Mesh& mesh, std::ifstream& stream, Vector3 posit
 			std::vector<ObjFaceVertex> faceVertices;
 			std::string token;
 
+			faceVertices.reserve(4);
 			while (lineStream >> token)
 			{
 				faceVertices.push_back(parseFaceVertex(token, vertices.size(), normals.size()));
@@ -339,28 +410,27 @@ static std::size_t	parseObjFile(Mesh& mesh, std::ifstream& stream, Vector3 posit
 
 			for (std::size_t index = 1; index + 1 < faceVertices.size(); index++)
 			{
-				const std::shared_ptr<Triangle> triangle = buildTriangle(
+				Triangle triangle = buildTriangle(
 					vertices,
 					normals,
 					faceVertices.at(0),
 					faceVertices.at(index),
 					faceVertices.at(index + 1),
-					positionOffset,
-					rotationDegrees,
-					scale,
+					transform,
 					material
 				);
-				if (triangle->area() <= DEGENERATE_TRIANGLE_EPSILON_SQUARED)
+				if (triangle.area() <= DEGENERATE_TRIANGLE_EPSILON_SQUARED)
 				{
 					skippedDegenerateTriangles++;
 					continue;
 				}
-				triangles.push_back(triangle);
+				triangles.push_back(std::move(triangle));
 			}
 		}
 	} while (!stream.eof());
 
-	mesh = Mesh(Vector3(), material, triangles);
+	mesh = Mesh(Vector3(), material, std::move(triangles));
 
 	return (skippedDegenerateTriangles);
+}
 }

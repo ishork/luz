@@ -38,7 +38,7 @@ bool	AABB::hit(Ray& ray, HitRecord& hitRecord, double t_max) const
 {
 	for (int a = 0; a < 3; a++)
 	{
-		double invD = 1.0 / ray.getDirection()[a];
+		double invD = ray.getInverseDirection()[a];
 		double t0 = (this->_minimum[a] - ray.getOrigin()[a]) * invD;
 		double t1 = (this->_maximum[a] - ray.getOrigin()[a]) * invD;
 		if (invD < 0.0)
