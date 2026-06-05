@@ -8,8 +8,14 @@
 class   Ray
 {
 	public:
-		Ray(void) : _origin(0.0, 0.0, 0.0), _direction(0.0, 0.0, 0.0) {}
-		Ray(const Vector3& origin, const Vector3& direction) : _origin(origin), _direction(_normalize(direction)) {}
+		Ray(void)
+			: _origin(0.0, 0.0, 0.0), _direction(0.0, 0.0, 0.0), _inverseDirection(_inverse(_direction))
+		{}
+
+		Ray(const Vector3& origin, const Vector3& direction) : _origin(origin)
+		{
+			this->setDirection(direction);
+		}
 
 		Vector3 pointAtRay(double t) const
 		{
@@ -19,11 +25,17 @@ class   Ray
 		const Vector3&	getOrigin(void) const { return (this->_origin); }
 		void			setOrigin(const Vector3& origin) { this->_origin = origin; }
 		const Vector3&	getDirection(void) const { return (this->_direction); }
-		void			setDirection(const Vector3& direction) { this->_direction = _normalize(direction); }
+		const Vector3&	getInverseDirection(void) const { return (this->_inverseDirection); }
+		void			setDirection(const Vector3& direction)
+		{
+			this->_direction = _normalize(direction);
+			this->_inverseDirection = _inverse(this->_direction);
+		}
 
 	private:
 		Vector3 _origin;
 		Vector3 _direction;
+		Vector3 _inverseDirection;
 
 		static Vector3	_normalize(const Vector3& direction)
 		{
@@ -34,5 +46,10 @@ class   Ray
 			);
 
 			return (direction / length);
+		}
+
+		static Vector3	_inverse(const Vector3& direction)
+		{
+			return (Vector3(1.0 / direction[0], 1.0 / direction[1], 1.0 / direction[2]));
 		}
 };

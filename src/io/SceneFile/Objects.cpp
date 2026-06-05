@@ -9,14 +9,109 @@
 #include "OBJReader.hpp"
 #include "Materials/Emissive.hpp"
 #include "Materials/Lambertian.hpp"
+#include <algorithm>
+#include <condition_variable>
+#include <exception>
 #include <fstream>
 #include <filesystem>
+#include <functional>
 #include <future>
 #include <mutex>
+#include <queue>
 #include <stdexcept>
 #include <memory>
+#include <thread>
 #include <utility>
 #include <cstdio>
+
+namespace SceneFile::internal
+{
+	class	MeshLoadScheduler
+	{
+		public:
+			explicit MeshLoadScheduler(std::size_t workerCount)
+			{
+				workerCount = std::max<std::size_t>(1, workerCount);
+				this->_workers.reserve(workerCount);
+				for (std::size_t i = 0; i < workerCount; i++)
+				{
+					this->_workers.emplace_back([this] { this->workerLoop(); });
+				}
+			}
+
+			~MeshLoadScheduler(void)
+			{
+				{
+					std::lock_guard<std::mutex> lock(this->_mutex);
+					this->_stopping = true;
+				}
+				this->_condition.notify_all();
+				for (std::thread& worker : this->_workers)
+				{
+					if (worker.joinable())
+					{
+						worker.join();
+					}
+				}
+			}
+
+			std::shared_future<std::shared_ptr<Hittable>>	enqueue(std::function<std::shared_ptr<Hittable>()> task)
+			{
+				auto promise = std::make_shared<std::promise<std::shared_ptr<Hittable>>>();
+				std::shared_future<std::shared_ptr<Hittable>> future = promise->get_future().share();
+
+				{
+					std::lock_guard<std::mutex> lock(this->_mutex);
+					if (this->_stopping)
+					{
+						throw std::runtime_error("Cannot enqueue mesh load after scheduler shutdown.");
+					}
+					this->_tasks.push([task = std::move(task), promise] {
+						try
+						{
+							promise->set_value(task());
+						}
+						catch (...)
+						{
+							promise->set_exception(std::current_exception());
+						}
+					});
+				}
+				this->_condition.notify_one();
+
+				return (future);
+			}
+
+		private:
+			void	workerLoop(void)
+			{
+				while (true)
+				{
+					std::function<void()> task;
+
+					{
+						std::unique_lock<std::mutex> lock(this->_mutex);
+						this->_condition.wait(lock, [this] {
+							return (this->_stopping || !this->_tasks.empty());
+						});
+						if (this->_stopping && this->_tasks.empty())
+						{
+							return;
+						}
+						task = std::move(this->_tasks.front());
+						this->_tasks.pop();
+					}
+					task();
+				}
+			}
+
+			std::mutex	_mutex;
+			std::condition_variable	_condition;
+			std::queue<std::function<void()>>	_tasks;
+			std::vector<std::thread>	_workers;
+			bool	_stopping = false;
+	};
+}
 
 namespace
 {
@@ -137,12 +232,16 @@ namespace
 	)
 	{
 		const ObjReadOptions options = sceneObjReadOptions(context);
-		std::shared_future<std::shared_ptr<Hittable>> future = std::async(
-			std::launch::async,
-			[fileName, position, rotation, scale, material, options]() -> std::shared_ptr<Hittable> {
+		if (!context.meshLoadScheduler)
+		{
+			context.meshLoadScheduler = std::make_shared<SceneFile::internal::MeshLoadScheduler>(context.meshLoadConcurrency);
+		}
+
+		std::shared_future<std::shared_ptr<Hittable>> future = context.meshLoadScheduler->enqueue(
+			[fileName, position, rotation, scale, material, options] {
 				return (std::make_shared<Mesh>(readObj(fileName, position, rotation, scale, material, options)));
 			}
-		).share();
+		);
 
 		context.pendingMeshLoads.push_back(future);
 		return (std::make_shared<DeferredHittable>(future));

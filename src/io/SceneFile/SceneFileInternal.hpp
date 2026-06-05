@@ -5,6 +5,7 @@
 #include "Scene/Scene.hpp"
 #include "Color.hpp"
 #include "Vector3.hpp"
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <future>
@@ -15,12 +16,16 @@
 
 namespace SceneFile::internal
 {
+	class	MeshLoadScheduler;
+
 	struct SceneFileContext
 	{
 		std::filesystem::path	baseDirectory;
 		std::unordered_map<std::string, std::shared_ptr<Material>>	materials;
 		std::unordered_map<std::string, std::string>	meshes;
 		ObjLoadProgress*	meshLoadProgress = nullptr;
+		std::size_t	meshLoadConcurrency = 1;
+		std::shared_ptr<MeshLoadScheduler>	meshLoadScheduler;
 		std::vector<std::shared_future<std::shared_ptr<Hittable>>>	pendingMeshLoads;
 	};
 

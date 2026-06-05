@@ -32,12 +32,20 @@ class   Triangle : public Hittable
 		double			area(void) const;
 
 	private:
+		void	_updateCache(void);
+
 		Vector3	 _vertex0;
 		Vector3	 _vertex1;
 		Vector3	 _vertex2;
 		Vector3	 _normal0;
 		Vector3	 _normal1;
 		Vector3	 _normal2;
+		Vector3	 _edge1;
+		Vector3	 _edge2;
+		Vector3	 _faceNormal;
+		AABB	 _boundingBox;
+		double	 _area;
 		bool	 _hasVertexNormals;
+		bool	 _isDegenerate;
 		std::shared_ptr<Material>	_material;
 };
