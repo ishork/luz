@@ -103,6 +103,32 @@ cmake --build build
 ctest --test-dir build
 ```
 
+## Build Optimizations
+
+Release builds are tuned for the machine doing the build by default. The
+Makefile enables `-O3`, native CPU tuning with `-march=native`, and link-time
+optimization with `-flto`. It also enables a fast floating-point mode where the
+compiler/platform supports it. CMake uses the same release intent: `-O3`, native
+CPU tuning, and interprocedural optimization/LTO when supported.
+
+These defaults produce faster local renders, but binaries built with
+`-march=native` may not run on older or different CPUs, and LTO can expose
+toolchain-specific linker issues. If you hit an illegal-instruction crash,
+linker error, or need a more portable binary, disable the aggressive options and
+rebuild from clean objects:
+
+```sh
+make clean
+make NATIVE=0 LTO=0
+```
+
+For CMake builds, configure with the optimization toggles off:
+
+```sh
+cmake -S . -B build -DLUZ_NATIVE_OPTIMIZATIONS=OFF -DLUZ_ENABLE_LTO=OFF
+cmake --build build --clean-first
+```
+
 ## CLI
 
 ```text
