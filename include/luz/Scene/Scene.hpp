@@ -54,7 +54,7 @@ class	Scene
 		bool	getDistanceBlueness(void) const;
 		void	setDistanceBlueness(bool distanceBlueness);
 		void	setAtmosphere(Atmosphere atmosphere);
-		Atmosphere	getAtmosphere(void) const;
+		const Atmosphere&	getAtmosphere(void) const;
 		Color	getBackgroundColor(void) const;
 		void	setBackgroundColor(Color backgroundColor);
 		void	setEnvironmentMap(std::shared_ptr<EnvironmentMap> environmentMap);
