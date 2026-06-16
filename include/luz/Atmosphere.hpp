@@ -5,6 +5,17 @@
 #include "Color.hpp"
 #include "Hittables/Hittable.hpp"
 
+struct	AtmosphereSample
+{
+	Color	inScattering;
+	Color	transmittance;
+
+	AtmosphereSample(void) :
+		inScattering(0.0, 0.0, 0.0),
+		transmittance(1.0, 1.0, 1.0)
+	{}
+};
+
 class   Atmosphere
 {
 	public:
@@ -16,6 +27,7 @@ class   Atmosphere
 		double  getAtmosphereRadius(void) const;
 		double  getStarsBrightness(void) const;
 		Color   computeIncidentLight(const Ray& ray, HitRecord& hitRecord, double t_max) const;
+		AtmosphereSample	sampleSegment(const Ray& ray, double t_max) const;
 		double  getSunAngle(void) const;
 		void	setSunAngle(double newAngle);
 		void	setEarthRadius(double earthRadius);

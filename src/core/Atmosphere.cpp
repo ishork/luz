@@ -234,29 +234,38 @@ bool planetaryHit(double radius, const Ray& ray, HitRecord& hitRecord)
 	return (true);
 }
 
-// Returns the sky color for 'ray'
-Color   Atmosphere::computeIncidentLight(const Ray& ray, HitRecord& hitRecord, double t_max) const
+// Samples atmosphere in-scattering and view transmittance for 'ray'.
+AtmosphereSample	Atmosphere::sampleSegment(const Ray& ray, double t_max) const
 {
+	AtmosphereSample sample;
+
 	if (!std::isfinite(t_max) || t_max <= T_MIN)
 	{
-		return (Color(0.0, 0.0, 0.0));
+		return (sample);
 	}
-	if (!planetaryHit(this->_atmosphereRadius, ray, hitRecord) || hitRecord.t1 <= T_MIN)
+	HitRecord atmosphereHitRecord;
+	if (!planetaryHit(this->_atmosphereRadius, ray, atmosphereHitRecord) || atmosphereHitRecord.t1 <= T_MIN)
 	{
-		return (Color(0.0, 0.0, 0.0));
+		return (sample);
 	}
 
-	const double t_min = std::max(T_MIN, hitRecord.t0);
-	t_max = std::min(t_max, hitRecord.t1);
+	HitRecord earthHitRecord;
+	if (planetaryHit(this->_earthRadius, ray, earthHitRecord) && earthHitRecord.t1 > T_MIN)
+	{
+		t_max = std::min(t_max, std::max(0.0, earthHitRecord.t0));
+	}
+
+	const double t_min = std::max(T_MIN, atmosphereHitRecord.t0);
+	t_max = std::min(t_max, atmosphereHitRecord.t1);
 	if (!std::isfinite(t_min) || !std::isfinite(t_max) || t_max <= t_min)
 	{
-		return (Color(0.0, 0.0, 0.0));
+		return (sample);
 	}
 
 	const double segmentLength = (t_max - t_min) / this->_samples;
 	if (!std::isfinite(segmentLength) || segmentLength <= 0.0)
 	{
-		return (Color(0.0, 0.0, 0.0));
+		return (sample);
 	}
 
 	const double inverseHR = 1.0 / this->_hR;
@@ -334,6 +343,21 @@ Color   Atmosphere::computeIncidentLight(const Ray& ray, HitRecord& hitRecord, d
 		}
 	}
 
+	const Vector3 viewTau = betaR * opticalDepthR + betaM * kMieAbsorptionScale * opticalDepthM;
+	const Vector3 viewTransmittance = exponentialAttenuation(viewTau);
 	Vector3 result = (sumR * betaR * phaseR + sumM * betaM * phaseM) * kSunIntensity;
-	return (Color(result.getX(), result.getY(), result.getZ()));
+	sample.inScattering = Color(result.getX(), result.getY(), result.getZ());
+	sample.transmittance = Color(
+		viewTransmittance.getX(),
+		viewTransmittance.getY(),
+		viewTransmittance.getZ()
+	);
+	return (sample);
+}
+
+// Returns the sky color for 'ray'
+Color   Atmosphere::computeIncidentLight(const Ray& ray, HitRecord& hitRecord, double t_max) const
+{
+	planetaryHit(this->_atmosphereRadius, ray, hitRecord);
+	return (sampleSegment(ray, t_max).inScattering);
 }

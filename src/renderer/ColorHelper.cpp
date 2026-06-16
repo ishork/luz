@@ -289,6 +289,18 @@ namespace
 		}
 	}
 
+	void	compositePrimaryAtmosphereSegment(Scene& scene, const Ray& ray, double tMax, Color& accumulatedColor, Color& throughput)
+	{
+		if (scene.getRenderSky() != SKY_ATMOSPHERE)
+		{
+			return;
+		}
+
+		const AtmosphereSample atmosphereSample = scene.getAtmosphere().sampleSegment(ray, tMax);
+		accumulatedColor += clampRayColor(throughput * atmosphereSample.inScattering);
+		throughput = clampRayColor(throughput * atmosphereSample.transmittance);
+	}
+
 	double	environmentPDF(Scene& scene, const Vector3& direction)
 	{
 		if (!hasEnvironmentLight(scene))
@@ -712,6 +724,14 @@ namespace
 			if (bounces == 0 && primaryFeatures != nullptr && renderCamera != nullptr)
 			{
 				*primaryFeatures = primaryHitFeatures(hitRecord, *renderCamera, x, y);
+			}
+			if (bounces == 0)
+			{
+				compositePrimaryAtmosphereSegment(scene, currentRay, hitRecord.t0, accumulatedColor, throughput);
+				if (isTerminatedThroughput(throughput))
+				{
+					return (accumulatedColor);
+				}
 			}
 
 			ScatterRecord	scatterRecord;

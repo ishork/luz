@@ -6,20 +6,10 @@
 // Computes the atmosphere color
 Color	Renderer::internal::_computeAtmosphereColor(Scene& scene, Ray& ray)
 {
-	// If the Earth radius is not added, the origin will be inside the Earth
 	Ray atmosphereRay(ray.getOrigin(), ray.getDirection());
-	HitRecord atmosphereHitRecord;
 	const Atmosphere& atmosphere = scene.getAtmosphere();
 
-	double t_max = T_MAX;
-
-	// Checks ray collisions with Earth
-	if (planetaryHit(atmosphere.getEarthRadius(), atmosphereRay, atmosphereHitRecord) && atmosphereHitRecord.t1 > 0.0)
-	{
-		t_max = std::max(0.0, atmosphereHitRecord.t0);
-	}
-
-	Color atmosphereColor = atmosphere.computeIncidentLight(atmosphereRay, atmosphereHitRecord, t_max);
+	Color atmosphereColor = atmosphere.sampleSegment(atmosphereRay, T_MAX).inScattering;
 
 	double random = Sampler::sample1D(Sampler::DIM_ATMOSPHERE);
 	if (random >= 0.9996)

@@ -26,6 +26,7 @@
 #include "Random.hpp"
 #include "Transform.hpp"
 #include "Utilities.hpp"
+#include "../src/renderer/RendererInternal.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -75,6 +76,13 @@ namespace
 		require(std::isfinite(color.getRed()) && color.getRed() >= 0.0, message + " Red component is invalid.");
 		require(std::isfinite(color.getGreen()) && color.getGreen() >= 0.0, message + " Green component is invalid.");
 		require(std::isfinite(color.getBlue()) && color.getBlue() >= 0.0, message + " Blue component is invalid.");
+	}
+
+	void	requireColorNear(const Color& actual, const Color& expected, const std::string& message)
+	{
+		requireNear(actual.getRed(), expected.getRed(), message + " red channel is wrong.");
+		requireNear(actual.getGreen(), expected.getGreen(), message + " green channel is wrong.");
+		requireNear(actual.getBlue(), expected.getBlue(), message + " blue channel is wrong.");
 	}
 
 	template <typename Function>
@@ -2135,6 +2143,67 @@ namespace
 		requireNear(negativeIntervalSky.getBlue(), 0.0, "Negative interval atmosphere blue should be black.");
 	}
 
+	void	testAtmosphereSegmentTransmittance(void)
+	{
+		const Atmosphere atmosphere(0.0, 1.0, 2.0, 1.0, 1.0, 8, 4, 0.0);
+
+		Ray surfaceRay(Vector3(0.0, 0.0, -4.0), Vector3(0.0, 0.0, 1.0));
+		const AtmosphereSample surfaceSample = atmosphere.sampleSegment(surfaceRay, 3.0);
+		requireFiniteNonNegativeColor(surfaceSample.inScattering, "Atmosphere segment in-scattering");
+		requireFiniteNonNegativeColor(surfaceSample.transmittance, "Atmosphere segment transmittance");
+		require(Utilities::luminance(surfaceSample.inScattering) > 0.0, "Atmosphere segment did not add in-scattering.");
+		require(surfaceSample.transmittance.getRed() <= 1.0, "Atmosphere red transmittance exceeds one.");
+		require(surfaceSample.transmittance.getGreen() <= 1.0, "Atmosphere green transmittance exceeds one.");
+		require(surfaceSample.transmittance.getBlue() <= 1.0, "Atmosphere blue transmittance exceeds one.");
+		require(surfaceSample.transmittance.getBlue() < 1.0, "Atmosphere segment did not attenuate the view ray.");
+
+		HitRecord hitRecord;
+		requireColorNear(
+			atmosphere.computeIncidentLight(surfaceRay, hitRecord, 3.0),
+			surfaceSample.inScattering,
+			"Legacy atmosphere incident-light wrapper"
+		);
+
+		Ray spaceAway(Vector3(0.0, 0.0, -4.0), Vector3(0.0, 0.0, -1.0));
+		const AtmosphereSample emptySample = atmosphere.sampleSegment(spaceAway, T_MAX);
+		requireNear(emptySample.inScattering.getRed(), 0.0, "Empty atmosphere segment red should be black.");
+		requireNear(emptySample.inScattering.getGreen(), 0.0, "Empty atmosphere segment green should be black.");
+		requireNear(emptySample.inScattering.getBlue(), 0.0, "Empty atmosphere segment blue should be black.");
+		requireNear(emptySample.transmittance.getRed(), 1.0, "Empty atmosphere segment red transmittance should be one.");
+		requireNear(emptySample.transmittance.getGreen(), 1.0, "Empty atmosphere segment green transmittance should be one.");
+		requireNear(emptySample.transmittance.getBlue(), 1.0, "Empty atmosphere segment blue transmittance should be one.");
+	}
+
+	void	testAtmospherePrimaryHitCompositesSurface(void)
+	{
+		const Atmosphere atmosphere(0.0, 1.0, 2.0, 1.0, 1.0, 8, 4, 0.0);
+		const Color surfaceEmission(0.2, 0.2, 0.2);
+		Scene scene;
+
+		scene.setRenderSky(SKY_ATMOSPHERE);
+		scene.setAtmosphere(atmosphere);
+		scene.setMaxLightBounces(0);
+		scene.addHittable(std::make_shared<Sphere>(
+			Vector3(0.0, 0.0, 0.0),
+			1.0,
+			std::make_shared<Emissive>(surfaceEmission, 1.0)
+		));
+
+		Ray ray(Vector3(0.0, 0.0, -4.0), Vector3(0.0, 0.0, 1.0));
+		const AtmosphereSample atmosphereSample = atmosphere.sampleSegment(ray, 3.0);
+		const Color expected = atmosphereSample.inScattering + (atmosphereSample.transmittance * surfaceEmission);
+		const Color actual = Renderer::internal::_calculateLightRaysColor(ray, scene);
+
+		requireFiniteNonNegativeColor(actual, "Atmosphere primary-hit composite");
+		requireColorNear(actual, expected, "Atmosphere primary-hit composite");
+		require(
+			std::abs(actual.getRed() - surfaceEmission.getRed()) > 1e-8
+			|| std::abs(actual.getGreen() - surfaceEmission.getGreen()) > 1e-8
+			|| std::abs(actual.getBlue() - surfaceEmission.getBlue()) > 1e-8,
+			"Atmosphere primary-hit composite returned the bare surface color."
+		);
+	}
+
 	void	testSceneDefaultsEnableAdaptiveAndDenoise(void)
 	{
 		Scene scene;
@@ -2532,6 +2601,8 @@ int	main(void)
 		testSettersRejectInvalidValues();
 		testPlanetaryHitRobustIntersections();
 		testAtmosphereIncidentLightInsideOutsideAndSunPosition();
+		testAtmosphereSegmentTransmittance();
+		testAtmospherePrimaryHitCompositesSurface();
 		testSceneDefaultsEnableAdaptiveAndDenoise();
 		testRenderedSceneHasBasicVisualStructure();
 		testRenderedScenePostProcessingProducesDisplayableImage();
