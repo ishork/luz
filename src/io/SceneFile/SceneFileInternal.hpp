@@ -42,4 +42,5 @@ namespace SceneFile::internal
 	bool	_parseNamedBlockHeader(const std::string& line, const std::string& keyword, std::string& name);
 	Vector3	_parseVector3Value(const std::string& value, const std::string& label);
 	Color	_parseColorValue(const std::string& value, const std::string& label);
+	Color	_parseColorValue(const std::string& value, const std::string& label, const std::filesystem::path& baseDirectory);
 }

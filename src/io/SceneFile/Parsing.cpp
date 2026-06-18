@@ -78,6 +78,15 @@ Vector3	SceneFile::internal::_parseVector3Value(const std::string& value, const 
 
 Color	SceneFile::internal::_parseColorValue(const std::string& value, const std::string& label)
 {
+	return (_parseColorValue(value, label, std::filesystem::path()));
+}
+
+Color	SceneFile::internal::_parseColorValue(
+	const std::string& value,
+	const std::string& label,
+	const std::filesystem::path& baseDirectory
+)
+{
 	double r;
 	double g;
 	double b;
@@ -117,6 +126,31 @@ Color	SceneFile::internal::_parseColorValue(const std::string& value, const std:
 		}
 		return (scalar);
 	};
+	auto parsePathFunctionArgument = [&](const std::string& functionName) -> std::string
+	{
+		const std::string prefix = functionName + "(";
+		if (lower.rfind(prefix, 0) != 0 || lower.back() != ')')
+		{
+			throw std::runtime_error("Invalid " + label + " color function.");
+		}
+
+		std::string argument = _trim(trimmed.substr(prefix.length(), trimmed.length() - prefix.length() - 1));
+		if (
+			argument.length() >= 2
+			&& (
+				(argument.front() == '"' && argument.back() == '"')
+				|| (argument.front() == '\'' && argument.back() == '\'')
+			)
+		)
+		{
+			argument = argument.substr(1, argument.length() - 2);
+		}
+		if (argument.empty())
+		{
+			throw std::runtime_error("Invalid " + label + " spectral curve path.");
+		}
+		return (_resolveAssetPath(baseDirectory, argument));
+	};
 	auto parseColorFunction = [&](const std::string& functionName) -> Color
 	{
 		const std::string prefix = functionName + "(";
@@ -152,6 +186,22 @@ Color	SceneFile::internal::_parseColorValue(const std::string& value, const std:
 	if (lower == "solar" || lower == "sun")
 	{
 		return (ColorScience::solar());
+	}
+	if (lower.rfind("reflectance(", 0) == 0)
+	{
+		return (ColorScience::loadReflectanceCurve(parsePathFunctionArgument("reflectance")));
+	}
+	if (lower.rfind("reflectance_curve(", 0) == 0)
+	{
+		return (ColorScience::loadReflectanceCurve(parsePathFunctionArgument("reflectance_curve")));
+	}
+	if (lower.rfind("spectrum(", 0) == 0)
+	{
+		return (ColorScience::loadReflectanceCurve(parsePathFunctionArgument("spectrum")));
+	}
+	if (lower.rfind("spectral(", 0) == 0)
+	{
+		return (ColorScience::loadReflectanceCurve(parsePathFunctionArgument("spectral")));
 	}
 	if (lower.rfind("acescg(", 0) == 0)
 	{
@@ -192,7 +242,7 @@ Color	SceneFile::internal::_parseColorValue(const std::string& value, const std:
 
 	if (std::sscanf(trimmed.c_str(), "(%lf,%lf,%lf)", &r, &g, &b) != 3)
 	{
-		throw std::runtime_error("Invalid " + label + " color. Use " + label + "=(r,g,b), acescg(r,g,b), srgb(r,g,b), linear_srgb(r,g,b), wavelength(NM), blackbody(K), or solar.");
+		throw std::runtime_error("Invalid " + label + " color. Use " + label + "=(r,g,b), acescg(r,g,b), srgb(r,g,b), linear_srgb(r,g,b), wavelength(NM), blackbody(K), solar, or reflectance(PATH).");
 	}
 
 	return (Color(r, g, b));

@@ -99,6 +99,7 @@ color=linear_srgb(0.8,0.2,0.1)
 color=wavelength(550nm)
 color=blackbody(3000K)
 color=solar
+color=reflectance(materials/red_paint.spd)
 ```
 
 `srgb(...)` values are decoded with the IEC sRGB transfer function and converted
@@ -311,6 +312,10 @@ also add a normal object using the same shape.
 | `radius` | `radius=R` | Sphere radius. |
 | `density` | `density=F` | Extinction density in `1/m`; Luz converts it through `meters_per_unit` for sampling. Higher values create thicker fog. Aliases: `extinction`, `sigma_t`. |
 | `color` | `color=(r,g,b)` | Scattering albedo/tint when no named phase material is used. Aliases: `albedo`, `scattering_color`. |
+| `preset` | `preset=NAME` | Measured/reference homogeneous medium preset. Presets: `clear_air`, `air`, `haze`, `mist`, `fog`, `smoke`, `cloud`. Alias: `volume_preset`, `medium`. |
+| `density_scale` | `density_scale=F` | Scales preset or explicit measured coefficients while preserving their scattering/absorption ratio. |
+| `sigma_s` | `sigma_s=COLOR` | Scattering coefficient in `1/m`. Luz converts `sigma_s`/`sigma_a` to scalar extinction plus RGB scattering albedo for the current homogeneous volume model. Aliases: `scattering`, `scattering_coefficient`. |
+| `sigma_a` | `sigma_a=COLOR` | Absorption coefficient in `1/m`. Aliases: `absorption`, `absorption_coefficient`. |
 | `anisotropy` | `anisotropy=G` | Henyey-Greenstein phase parameter in `[-0.99,0.99]`. Positive values create forward-scattering godrays; `0` uses isotropic scattering. Alias: `g`. |
 | `material` | `material=name` | Optional named phase material from `[materials]`. |
 
@@ -322,6 +327,23 @@ radius=8
 density=0.035
 color=(0.85,0.9,1.0)
 anisotropy=0.65
+}
+
+volume measured_haze {
+shape=sphere
+position=(0,2,2)
+radius=8
+preset=haze
+density_scale=0.5
+}
+
+volume measured_medium {
+shape=box
+position=(0,2,0)
+size=(4,3,4)
+sigma_s=(0.05,0.02,0.01)
+sigma_a=(0.01,0.02,0.04)
+anisotropy=0.4
 }
 ```
 
@@ -361,7 +383,12 @@ use the `0.0` to `1.0` range. Bare triples and `acescg(...)` are scene-linear
 ACEScg values. `srgb(...)` is for ordinary display/UI color picker values.
 Spectral colors are converted through CIE 1931 color matching to normalized
 scene-linear ACEScg chromaticities when the scene file is loaded. `solar` is a
-5778 K solar chromaticity preset.
+5778 K solar chromaticity preset. `reflectance(PATH)`, `reflectance_curve(PATH)`,
+`spectrum(PATH)`, and `spectral(PATH)` load measured spectral reflectance files
+and integrate them to ACEScg. Reflectance files are plain text or CSV with one
+`wavelength_nm,reflectance` sample per line; `#` starts a comment. Wavelengths
+must be unique samples within `360-830 nm`, and reflectance values must be in
+`[0,1]`. Paths are resolved like textures, relative to the scene file first.
 
 Named material blocks can use the direct material lines above, or property syntax:
 
@@ -416,6 +443,10 @@ Principled material property blocks support:
 | `roughness=F` | GGX roughness in `[0,1]`. |
 | `transmission=F` | Rough dielectric transmission layer in `[0,1]`. |
 | `ior=F` | Dielectric refractive index for Fresnel and rough refraction. Alias: `refractive_index`. |
+| `glass_preset=NAME` | Measured glass preset for IOR/dispersion. Presets: `bk7`, `borosilicate`, `fused_silica`, `silica`, `water`, `diamond`, `sapphire`. Alias: `glass`. |
+| `ior_wavelength=NM` | Evaluates the glass preset, Abbe model, or Sellmeier model at a specific wavelength. Defaults to the sodium d-line, `587.5618 nm`. |
+| `abbe_number=F` | Approximate dispersion from `ior`/preset d-line IOR and Abbe number. Alias: `abbe`, `vd`. |
+| `sellmeier_b=(b1,b2,b3)` / `sellmeier_c=(c1,c2,c3)` | Explicit Sellmeier coefficients. `c` terms are in micrometer squared. |
 | `clearcoat=F` | White dielectric clearcoat layer in `[0,1]`. Aliases: `clear_coat`, `coat`. |
 | `clearcoat_roughness=F` | Clearcoat GGX roughness in `[0,1]`. Aliases: `clear_coat_roughness`, `coat_roughness`. |
 | `sheen=F` | Grazing-angle sheen layer in `[0,1]`. |
@@ -428,6 +459,7 @@ measured conductor parameters:
 | Property | Meaning |
 | --- | --- |
 | `roughness=F` | GGX conductor roughness in `[0,1]`; `fuzz` is accepted as an alias from compact metal syntax. |
+| `preset=NAME` | Built-in measured conductor eta/k preset. Presets: `aluminum`, `copper`, `gold`, `silver`, `iron`, `nickel`, `chromium`; chemical aliases like `au`, `ag`, and `cu` are accepted. Aliases: `metal_preset`, `conductor_preset`, `conductor`. |
 | `eta=(r,g,b)` | Real refractive index for conductor Fresnel. Alias: `conductor_eta`. |
 | `k=(r,g,b)` | Extinction coefficient for conductor Fresnel. Aliases: `extinction`, `extinction_coefficient`, `conductor_k`. |
 
@@ -436,6 +468,10 @@ Dielectric material property blocks support physical glass controls:
 | Property | Meaning |
 | --- | --- |
 | `ior=F` | Refractive index. Defaults to ordinary glass. Alias: `refractive_index`. |
+| `glass_preset=NAME` | Measured glass preset for IOR/dispersion. Presets: `bk7`, `borosilicate`, `fused_silica`, `silica`, `water`, `diamond`, `sapphire`. Alias: `glass`; generic `preset=NAME` also works for dielectric materials. |
+| `ior_wavelength=NM` | Evaluates the glass preset, Abbe model, or Sellmeier model at a specific wavelength. Defaults to `587.5618 nm`. |
+| `abbe_number=F` | Approximate dispersion from `ior`/preset d-line IOR and Abbe number. Alias: `abbe`, `vd`. |
+| `sellmeier_b=(b1,b2,b3)` / `sellmeier_c=(c1,c2,c3)` | Explicit Sellmeier coefficients. `c` terms are in micrometer squared. |
 | `roughness=F` | GGX rough glass reflection/transmission roughness in `[0,1]`. |
 | `absorption=(r,g,b)` | Beer-Lambert absorption coefficient in `1/m`, applied by physical path length inside the medium. Aliases: `absorption_coefficient`, `sigma_a`. |
 | `transmittance=COLOR` | Alternative to `absorption`: desired medium transmittance over `attenuation_distance`. Aliases: `transmittance_color`, `attenuation`, `attenuation_color`. |

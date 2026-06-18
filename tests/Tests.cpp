@@ -8,6 +8,7 @@
 #include "Image.hpp"
 #include "IESProfile.hpp"
 #include "LightUnits.hpp"
+#include "MeasuredMaterials.hpp"
 #include "Materials/BSDF.hpp"
 #include "Materials/Lambertian.hpp"
 #include "Materials/Emissive.hpp"
@@ -662,6 +663,26 @@ namespace
 		stream << nadirCandela << " " << horizonCandela << " " << zenithCandela << "\n";
 	}
 
+	void	writeFlatReflectanceCurve(const std::filesystem::path& path, double reflectance)
+	{
+		std::ofstream stream(path);
+
+		stream << "360," << reflectance << "\n";
+		stream << "830," << reflectance << "\n";
+	}
+
+	void	writeRedReflectanceCurve(const std::filesystem::path& path)
+	{
+		std::ofstream stream(path);
+
+		stream << "# wavelength_nm,reflectance\n";
+		stream << "360,0.02\n";
+		stream << "450,0.03\n";
+		stream << "550,0.08\n";
+		stream << "650,0.75\n";
+		stream << "830,0.80\n";
+	}
+
 	void	testIESProfileLoadsPhysicalLampData(void)
 	{
 		const std::filesystem::path iesPath = std::filesystem::temp_directory_path() / "luz_unit_test.ies";
@@ -707,6 +728,33 @@ namespace
 		require(cool.getBlue() > cool.getRed(), "10000 K blackbody did not convert to a cool color.");
 		requireThrows([]() { ColorScience::wavelength(200.0); }, "Spectral conversion accepted non-visible wavelength.");
 		requireThrows([]() { ColorScience::blackbody(100.0); }, "Spectral conversion accepted invalid blackbody temperature.");
+	}
+
+	void	testSpectralReflectanceCurveConversion(void)
+	{
+		const std::filesystem::path flatPath = std::filesystem::temp_directory_path() / "luz_flat_reflectance.spd";
+		const std::filesystem::path redPath = std::filesystem::temp_directory_path() / "luz_red_reflectance.spd";
+
+		writeFlatReflectanceCurve(flatPath, 0.5);
+		const Color flat = ColorScience::loadReflectanceCurve(flatPath.string());
+		requireColorNear(flat, Color(0.5, 0.5, 0.5), "Flat spectral reflectance did not preserve neutral reflectance.");
+
+		writeRedReflectanceCurve(redPath);
+		const Color red = ColorScience::loadReflectanceCurve(redPath.string());
+		require(red.getRed() > red.getGreen() && red.getRed() > red.getBlue(), "Spectral reflectance curve did not produce red-dominant color.");
+		requireThrows(
+			[]()
+			{
+				ColorScience::reflectanceCurve(std::vector<ColorScience::SpectralSample>{
+					{360.0, 0.5},
+					{361.0, 1.5}
+				});
+			},
+			"Spectral reflectance accepted reflectance above one."
+		);
+
+		std::filesystem::remove(flatPath);
+		std::filesystem::remove(redPath);
 	}
 
 	void	testGaussianBlurSupportsInPlaceSmallImages(void)
@@ -2056,6 +2104,161 @@ namespace
 		std::filesystem::remove(scenePath);
 	}
 
+	void	testSceneFileLoadsMeasuredMaterialPresets(void)
+	{
+		const std::filesystem::path curvePath = std::filesystem::temp_directory_path() / "luz_measured_red_reflectance.spd";
+		const std::filesystem::path scenePath = std::filesystem::temp_directory_path() / "luz_measured_materials_test.luz";
+		const MeasuredMaterials::Conductor gold = MeasuredMaterials::conductorPreset("gold");
+		const MeasuredMaterials::Glass bk7 = MeasuredMaterials::glassPreset("bk7");
+
+		writeRedReflectanceCurve(curvePath);
+		{
+			std::ofstream sceneStream(scenePath);
+			sceneStream << std::setprecision(17);
+			sceneStream
+				<< "[materials]\n"
+				<< "material measured_paint {\n"
+				<< "type=lambertian\n"
+				<< "color=reflectance(" << curvePath.string() << ")\n"
+				<< "}\n"
+				<< "material measured_gold {\n"
+				<< "type=metal\n"
+				<< "preset=gold\n"
+				<< "roughness=0.15\n"
+				<< "}\n"
+				<< "material bk7_glass {\n"
+				<< "type=dielectric\n"
+				<< "glass_preset=bk7\n"
+				<< "ior_wavelength=486.1327nm\n"
+				<< "}\n"
+				<< "material custom_glass {\n"
+				<< "type=dielectric\n"
+				<< "ior=1.5168\n"
+				<< "abbe_number=64.17\n"
+				<< "ior_wavelength=656.2725nm\n"
+				<< "}\n\n"
+				<< "[scene]\n"
+				<< "sphere paint {\n"
+				<< "position=(-3,0,0)\n"
+				<< "radius=1\n"
+				<< "material=measured_paint\n"
+				<< "}\n"
+				<< "sphere metal {\n"
+				<< "position=(-1,0,0)\n"
+				<< "radius=1\n"
+				<< "material=measured_gold\n"
+				<< "}\n"
+				<< "sphere glass {\n"
+				<< "position=(1,0,0)\n"
+				<< "radius=1\n"
+				<< "material=bk7_glass\n"
+				<< "}\n"
+				<< "sphere custom {\n"
+				<< "position=(3,0,0)\n"
+				<< "radius=1\n"
+				<< "material=custom_glass\n"
+				<< "}\n";
+		}
+
+		Scene scene;
+		SceneFile::read(scene, scenePath.string());
+
+		require(scene.getHittables().size() == 4, "Measured material scene did not load all spheres.");
+		const Color paint = scene.getHittables()[0]->getMaterial()->getColor();
+		require(paint.getRed() > paint.getGreen() && paint.getRed() > paint.getBlue(), "Scene spectral reflectance curve was not red-dominant.");
+
+		Metal* metal = dynamic_cast<Metal*>(scene.getHittables()[1]->getMaterial());
+		require(metal != nullptr, "Measured metal preset did not create a metal material.");
+		require(metal->usesConductorFresnel(), "Measured metal preset did not enable conductor Fresnel.");
+		requireColorNear(metal->getEta(), gold.eta, "Measured gold eta preset is wrong.");
+		requireColorNear(metal->getExtinctionCoefficient(), gold.extinctionCoefficient, "Measured gold k preset is wrong.");
+		requireNear(metal->getRoughness(), 0.15, "Measured metal roughness was not preserved.");
+
+		Dielectric* presetGlass = dynamic_cast<Dielectric*>(scene.getHittables()[2]->getMaterial());
+		require(presetGlass != nullptr, "BK7 preset did not create a dielectric.");
+		requireNear(
+			presetGlass->getRefractiveIndex(),
+			MeasuredMaterials::refractiveIndexFromSellmeier(bk7.sellmeierB, bk7.sellmeierC, 486.1327),
+			"BK7 Sellmeier preset did not evaluate at requested wavelength."
+		);
+
+		Dielectric* customGlass = dynamic_cast<Dielectric*>(scene.getHittables()[3]->getMaterial());
+		require(customGlass != nullptr, "Custom Abbe glass did not create a dielectric.");
+		requireNear(
+			customGlass->getRefractiveIndex(),
+			MeasuredMaterials::refractiveIndexFromAbbe(1.5168, 64.17, 656.2725),
+			"Custom Abbe dispersion did not evaluate at requested wavelength."
+		);
+
+		std::filesystem::remove(scenePath);
+		std::filesystem::remove(curvePath);
+	}
+
+	void	testSceneFileLoadsMeasuredVolumeData(void)
+	{
+		const std::filesystem::path scenePath = std::filesystem::temp_directory_path() / "luz_measured_volumes_test.luz";
+		const MeasuredMaterials::Volume haze = MeasuredMaterials::volumePreset("haze");
+		const Color manualSigmaS(0.05, 0.02, 0.01);
+		const Color manualSigmaA(0.01, 0.02, 0.04);
+
+		{
+			std::ofstream sceneStream(scenePath);
+			sceneStream << std::setprecision(17);
+			sceneStream
+				<< "[scene]\n"
+				<< "volume measured_haze {\n"
+				<< "shape=sphere\n"
+				<< "position=(0,0,0)\n"
+				<< "radius=1\n"
+				<< "preset=haze\n"
+				<< "density_scale=2\n"
+				<< "}\n"
+				<< "volume measured_coefficients {\n"
+				<< "shape=box\n"
+				<< "position=(3,0,0)\n"
+				<< "size=(1,1,1)\n"
+				<< "sigma_s=(0.05,0.02,0.01)\n"
+				<< "sigma_a=(0.01,0.02,0.04)\n"
+				<< "anisotropy=0.4\n"
+				<< "}\n";
+		}
+
+		Scene scene;
+		SceneFile::read(scene, scenePath.string());
+
+		require(scene.getHittables().size() == 2, "Measured volume scene did not load both volumes.");
+		const std::shared_ptr<ConstantVolume> hazeVolume = std::dynamic_pointer_cast<ConstantVolume>(scene.getHittables()[0]);
+		const std::shared_ptr<ConstantVolume> manualVolume = std::dynamic_pointer_cast<ConstantVolume>(scene.getHittables()[1]);
+		require(hazeVolume != nullptr, "Measured haze preset did not create a ConstantVolume.");
+		require(manualVolume != nullptr, "Measured sigma coefficients did not create a ConstantVolume.");
+
+		const Color scaledHazeSigmaS(haze.scatteringCoefficient.getRed() * 2.0, haze.scatteringCoefficient.getGreen() * 2.0, haze.scatteringCoefficient.getBlue() * 2.0);
+		const Color scaledHazeSigmaA(haze.absorptionCoefficient.getRed() * 2.0, haze.absorptionCoefficient.getGreen() * 2.0, haze.absorptionCoefficient.getBlue() * 2.0);
+		const double hazeDensity = MeasuredMaterials::volumeDensity(scaledHazeSigmaS, scaledHazeSigmaA);
+		requireNear(hazeVolume->getDensity(), hazeDensity, "Measured volume preset density is wrong.");
+		requireColorNear(
+			hazeVolume->getMaterial()->getColor(),
+			MeasuredMaterials::volumeScatteringAlbedo(scaledHazeSigmaS, hazeDensity),
+			"Measured volume preset albedo is wrong."
+		);
+		HenyeyGreenstein* hazePhase = dynamic_cast<HenyeyGreenstein*>(hazeVolume->getMaterial());
+		require(hazePhase != nullptr, "Measured haze preset did not create an anisotropic phase function.");
+		requireNear(hazePhase->getAnisotropy(), haze.anisotropy, "Measured haze anisotropy is wrong.");
+
+		const double manualDensity = MeasuredMaterials::volumeDensity(manualSigmaS, manualSigmaA);
+		requireNear(manualVolume->getDensity(), manualDensity, "Measured sigma volume density is wrong.");
+		requireColorNear(
+			manualVolume->getMaterial()->getColor(),
+			MeasuredMaterials::volumeScatteringAlbedo(manualSigmaS, manualDensity),
+			"Measured sigma volume albedo is wrong."
+		);
+		HenyeyGreenstein* manualPhase = dynamic_cast<HenyeyGreenstein*>(manualVolume->getMaterial());
+		require(manualPhase != nullptr, "Measured sigma volume did not create an anisotropic phase function.");
+		requireNear(manualPhase->getAnisotropy(), 0.4, "Measured sigma volume anisotropy is wrong.");
+
+		std::filesystem::remove(scenePath);
+	}
+
 	void	testSphereUVProjectionModes(void)
 	{
 		const auto material = std::make_shared<Lambertian>(Color(1.0, 1.0, 1.0));
@@ -2511,6 +2714,57 @@ namespace
 		);
 
 		std::filesystem::remove(scenePath);
+	}
+
+	void	testSceneFileRejectsAmbiguousMeasuredData(void)
+	{
+		const std::filesystem::path scenePath = std::filesystem::temp_directory_path() / "luz_ambiguous_measured_data_test.luz";
+		auto requireBadScene = [&scenePath](const std::string& contents, const std::string& message)
+		{
+			{
+				std::ofstream stream(scenePath);
+				stream << contents;
+			}
+			Scene scene;
+			requireThrows(
+				[&scene, &scenePath]()
+				{
+					SceneFile::read(scene, scenePath.string());
+				},
+				message
+			);
+			std::filesystem::remove(scenePath);
+		};
+
+		requireBadScene(
+			"[materials]\n"
+			"material bad_gold {\n"
+			"type=metal\n"
+			"preset=gold\n"
+			"eta=(0.2,0.3,0.4)\n"
+			"k=(2,3,4)\n"
+			"}\n\n",
+			"Scene file accepted metal preset mixed with explicit eta/k."
+		);
+		requireBadScene(
+			"[materials]\n"
+			"material bad_glass {\n"
+			"type=dielectric\n"
+			"glass_preset=bk7\n"
+			"ior=1.4\n"
+			"}\n\n",
+			"Scene file accepted glass preset mixed with explicit IOR."
+		);
+		requireBadScene(
+			"[scene]\n"
+			"volume bad_fog {\n"
+			"shape=sphere\n"
+			"radius=1\n"
+			"preset=fog\n"
+			"density=0.1\n"
+			"}\n",
+			"Scene file accepted volume preset mixed with explicit density."
+		);
 	}
 
 	void	testBVHReturnsClosestHit(void)
@@ -3739,6 +3993,7 @@ int	main(void)
 		testPhysicalLightUnitConversions();
 		testIESProfileLoadsPhysicalLampData();
 		testSpectralColorConversions();
+		testSpectralReflectanceCurveConversion();
 		testGaussianBlurSupportsInPlaceSmallImages();
 		testGaussianBlurPreservesCenteredEnergyAndEdges();
 		testTerminalFilePath();
@@ -3775,6 +4030,8 @@ int	main(void)
 		testSceneFileExplicitColorSpaces();
 		testSceneFileLoadsAbsorbingDielectricMaterial();
 		testSceneFileLoadsConductorMetalMaterial();
+		testSceneFileLoadsMeasuredMaterialPresets();
+		testSceneFileLoadsMeasuredVolumeData();
 		testSphereUVProjectionModes();
 		testSphereHitTracksFrontFace();
 		testDielectricUsesExitRefractionRatio();
@@ -3788,6 +4045,7 @@ int	main(void)
 		testSceneFileMetersPerUnitScalesVolumeDensity();
 		testSceneFileLoadsNonMetallicPrincipledMaterial();
 		testSceneFileRejectsInvalidMaterial();
+		testSceneFileRejectsAmbiguousMeasuredData();
 		testBVHReturnsClosestHit();
 		testVolumeHitWorksFromInsideBoundary();
 		testBoxVolumeHitWorksFromInsideBoundary();

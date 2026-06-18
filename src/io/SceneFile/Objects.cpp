@@ -15,6 +15,7 @@
 #include "Materials/HenyeyGreenstein.hpp"
 #include "ColorScience.hpp"
 #include "LightUnits.hpp"
+#include "MeasuredMaterials.hpp"
 #include "Defaults.hpp"
 #include <algorithm>
 #include <cmath>
@@ -340,8 +341,15 @@ namespace
 		Vector3	size = Vector3(1.0, 1.0, 1.0);
 		double	radius = 1.0;
 		double	density = 0.1;
+		bool	hasDensity = false;
 		Color	color = Color(0.72, 0.78, 0.86);
+		bool	hasColor = false;
 		double	anisotropy = 0.0;
+		bool	hasAnisotropy = false;
+		double	densityScale = 1.0;
+		std::string	volumePreset;
+		std::optional<Color>	scatteringCoefficient;
+		std::optional<Color>	absorptionCoefficient;
 		std::shared_ptr<Material>	material = nullptr;
 	};
 
@@ -595,6 +603,70 @@ namespace
 		return (sceneDensity);
 	}
 
+	Color	scaledColor(Color color, double scale)
+	{
+		return (Color(
+			color.getRed() * scale,
+			color.getGreen() * scale,
+			color.getBlue() * scale
+		));
+	}
+
+	void	applyMeasuredVolumeCoefficients(
+		VolumeBlock& volume,
+		Color scatteringCoefficient,
+		Color absorptionCoefficient,
+		const std::string& volumeName
+	)
+	{
+		if (!std::isfinite(volume.densityScale) || volume.densityScale <= 0.0)
+		{
+			throw std::runtime_error("Volume '" + volumeName + "' density_scale must be finite and positive.");
+		}
+
+		scatteringCoefficient = scaledColor(scatteringCoefficient, volume.densityScale);
+		absorptionCoefficient = scaledColor(absorptionCoefficient, volume.densityScale);
+		volume.density = MeasuredMaterials::volumeDensity(scatteringCoefficient, absorptionCoefficient);
+		volume.color = MeasuredMaterials::volumeScatteringAlbedo(scatteringCoefficient, volume.density);
+	}
+
+	void	applyMeasuredVolumeData(VolumeBlock& volume, const std::string& volumeName)
+	{
+		if (!volume.volumePreset.empty())
+		{
+			if (volume.scatteringCoefficient || volume.absorptionCoefficient)
+			{
+				throw std::runtime_error("Volume '" + volumeName + "' defines both preset and explicit sigma coefficients.");
+			}
+			if (volume.hasDensity || volume.hasColor || volume.hasAnisotropy)
+			{
+				throw std::runtime_error("Volume '" + volumeName + "' preset cannot be combined with density, color, or anisotropy overrides. Use density_scale.");
+			}
+			const MeasuredMaterials::Volume preset = MeasuredMaterials::volumePreset(volume.volumePreset);
+			volume.anisotropy = preset.anisotropy;
+			applyMeasuredVolumeCoefficients(
+				volume,
+				preset.scatteringCoefficient,
+				preset.absorptionCoefficient,
+				volumeName
+			);
+			return;
+		}
+		if (volume.scatteringCoefficient || volume.absorptionCoefficient)
+		{
+			if (volume.hasDensity || volume.hasColor)
+			{
+				throw std::runtime_error("Volume '" + volumeName + "' sigma coefficients cannot be combined with density or color.");
+			}
+			applyMeasuredVolumeCoefficients(
+				volume,
+				volume.scatteringCoefficient.value_or(Color(0.0, 0.0, 0.0)),
+				volume.absorptionCoefficient.value_or(Color(0.0, 0.0, 0.0)),
+				volumeName
+			);
+		}
+	}
+
 	void	addObjectBlock(Scene& scene, std::ifstream& stream, SceneFile::internal::SceneFileContext& context, const std::string& objectName)
 	{
 		std::string line;
@@ -744,7 +816,12 @@ namespace
 		throw std::runtime_error("Sphere object '" + sphereName + "' is missing a closing }.");
 	}
 
-	void	addAreaLightBlock(Scene& scene, std::ifstream& stream, const std::string& lightName)
+	void	addAreaLightBlock(
+		Scene& scene,
+		std::ifstream& stream,
+		SceneFile::internal::SceneFileContext& context,
+		const std::string& lightName
+	)
 	{
 		std::string line;
 		AreaLightBlock light;
@@ -815,7 +892,7 @@ namespace
 			}
 			else if (key == "color")
 			{
-				light.color = SceneFile::internal::_parseColorValue(value, key);
+				light.color = SceneFile::internal::_parseColorValue(value, key, context.baseDirectory);
 			}
 			else if (parseSurfaceLightUnit(light.units, key, value))
 			{
@@ -896,7 +973,7 @@ namespace
 			}
 			else if (key == "color")
 			{
-				light.color = SceneFile::internal::_parseColorValue(value, key);
+				light.color = SceneFile::internal::_parseColorValue(value, key, context.baseDirectory);
 			}
 			else if (parseSphericalLightUnit(light.units, key, value))
 			{
@@ -933,7 +1010,12 @@ namespace
 		throw std::runtime_error("Sphere light '" + lightName + "' is missing a closing }.");
 	}
 
-	void	addDirectionalLightBlock(Scene& scene, std::ifstream& stream, const std::string& lightName)
+	void	addDirectionalLightBlock(
+		Scene& scene,
+		std::ifstream& stream,
+		SceneFile::internal::SceneFileContext& context,
+		const std::string& lightName
+	)
 	{
 		std::string line;
 		DirectionalLightBlock light;
@@ -986,7 +1068,7 @@ namespace
 			}
 			else if (key == "color")
 			{
-				light.color = SceneFile::internal::_parseColorValue(value, key);
+				light.color = SceneFile::internal::_parseColorValue(value, key, context.baseDirectory);
 				light.hasColor = true;
 			}
 			else if (parseDirectionalLightUnit(light.units, key, value))
@@ -1018,6 +1100,7 @@ namespace
 			}
 			if (blockLine == "}")
 			{
+				applyMeasuredVolumeData(volume, volumeName);
 				scene.addHittable(std::make_shared<ConstantVolume>(
 					buildVolumeBoundary(volume, volumeName),
 					buildVolumePhaseFunction(volume),
@@ -1064,14 +1147,45 @@ namespace
 			else if (key == "density" || key == "extinction" || key == "sigma_t")
 			{
 				volume.density = std::stod(value);
+				volume.hasDensity = true;
 			}
 			else if (key == "color" || key == "albedo" || key == "scatteringcolor" || key == "scattering_color")
 			{
-				volume.color = SceneFile::internal::_parseColorValue(value, key);
+				volume.color = SceneFile::internal::_parseColorValue(value, key, context.baseDirectory);
+				volume.hasColor = true;
 			}
 			else if (key == "anisotropy" || key == "g")
 			{
 				volume.anisotropy = std::stod(value);
+				volume.hasAnisotropy = true;
+			}
+			else if (key == "preset" || key == "volume_preset" || key == "volumepreset" || key == "medium")
+			{
+				volume.volumePreset = value;
+			}
+			else if (key == "density_scale" || key == "densityscale" || key == "coefficient_scale" || key == "coefficientscale")
+			{
+				volume.densityScale = std::stod(value);
+			}
+			else if (
+				key == "sigma_s"
+				|| key == "sigmas"
+				|| key == "scattering"
+				|| key == "scattering_coefficient"
+				|| key == "scatteringcoefficient"
+			)
+			{
+				volume.scatteringCoefficient = SceneFile::internal::_parseColorValue(value, key, context.baseDirectory);
+			}
+			else if (
+				key == "sigma_a"
+				|| key == "sigmaa"
+				|| key == "absorption"
+				|| key == "absorption_coefficient"
+				|| key == "absorptioncoefficient"
+			)
+			{
+				volume.absorptionCoefficient = SceneFile::internal::_parseColorValue(value, key, context.baseDirectory);
 			}
 			else if (key == "material")
 			{
@@ -1102,12 +1216,12 @@ namespace
 		}
 		if (SceneFile::internal::_parseNamedBlockHeader(line, "area_light", blockName))
 		{
-			addAreaLightBlock(scene, stream, blockName);
+			addAreaLightBlock(scene, stream, context, blockName);
 			return (true);
 		}
 		if (SceneFile::internal::_parseNamedBlockHeader(line, "directional_light", blockName))
 		{
-			addDirectionalLightBlock(scene, stream, blockName);
+			addDirectionalLightBlock(scene, stream, context, blockName);
 			return (true);
 		}
 		if (SceneFile::internal::_parseNamedBlockHeader(line, "volume", blockName))
