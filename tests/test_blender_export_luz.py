@@ -23,6 +23,7 @@ class SocketCollection(dict[str, "FakeSocket"]):
 class FakeLink:
 	def __init__(self, from_socket: "FakeSocket") -> None:
 		self.from_socket = from_socket
+		self.from_node = from_socket.node
 
 
 class FakeSocket:
@@ -52,6 +53,29 @@ class FakeNode:
 
 def link(from_socket: FakeSocket, to_socket: FakeSocket) -> None:
 	to_socket.links.append(FakeLink(from_socket))
+
+
+class FakeImage:
+	def __init__(self, pixels: list[float], size: tuple[int, int]) -> None:
+		self.pixels = pixels
+		self.size = size
+
+
+class FakeFramePoint:
+	def __init__(self, x: float, y: float, z: float) -> None:
+		self.x = x
+		self.y = y
+		self.z = z
+
+
+class FakeCameraData:
+	type = "PERSP"
+
+	def __init__(self, frame: list[FakeFramePoint]) -> None:
+		self.frame = frame
+
+	def view_frame(self, scene: object) -> list[FakeFramePoint]:
+		return self.frame
 
 
 def test_environment_texture_survives_color_ramp_and_mix_rgb() -> None:
@@ -85,9 +109,56 @@ def test_environment_texture_survives_modern_mix_node_inputs() -> None:
 	assert exporter.texture_image_from_output(mix_output, set()) is image
 
 
+def test_separate_color_channel_resolves_image_average_for_scalar_inputs() -> None:
+	image = FakeImage(
+		[
+			0.1,
+			0.6,
+			0.2,
+			1.0,
+			0.3,
+			0.8,
+			0.4,
+			1.0,
+		],
+		(2, 1),
+	)
+	texture = FakeNode("TEX_IMAGE", image)
+	texture_color = texture.output("Color")
+	separate = FakeNode("SEPARATE_COLOR")
+	separate_color = separate.input("Color")
+	separate_green = separate.output("Green")
+	principled = FakeNode("BSDF_PRINCIPLED")
+	roughness = principled.input("Roughness")
+
+	link(texture_color, separate_color)
+	link(separate_green, roughness)
+
+	value = exporter.scalar_from_value(exporter.resolve_socket_value(roughness, 0.5), 0.5)
+	assert abs(value - 0.7) < 1e-12
+
+
+def test_effective_camera_sensor_uses_blender_view_frame() -> None:
+	camera = FakeCameraData(
+		[
+			FakeFramePoint(0.5, 0.5, -2.7777777778),
+			FakeFramePoint(0.5, -0.5, -2.7777777778),
+			FakeFramePoint(-0.5, -0.5, -2.7777777778),
+			FakeFramePoint(-0.5, 0.5, -2.7777777778),
+		]
+	)
+
+	width, height = exporter.effective_camera_sensor_mm(camera, object(), 100.0, 36.0, 24.0)
+
+	assert abs(width - 36.0) < 1e-9
+	assert abs(height - 36.0) < 1e-9
+
+
 def main() -> None:
 	test_environment_texture_survives_color_ramp_and_mix_rgb()
 	test_environment_texture_survives_modern_mix_node_inputs()
+	test_separate_color_channel_resolves_image_average_for_scalar_inputs()
+	test_effective_camera_sensor_uses_blender_view_frame()
 
 
 if __name__ == "__main__":
