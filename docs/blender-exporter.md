@@ -146,11 +146,12 @@ The exporter also works without passing the `.blend` file before `--python`:
   `view_transform=standard`, Blender `AgX` exports `view_transform=agx`, and
   Blender `ACES` exports `view_transform=aces`. Luz `raw` is available only as an
   explicit override for debugging/HDR data, not for normal viewing.
-- Principled BSDF export includes IOR, coat weight/roughness, and sheen when
-  those Blender sockets are available. Glossy and anisotropic BSDF nodes export
-  as Luz `glossy` materials, and Blender Diffuse+Glossy `Mix Shader` graphs
-  export as `diffuse_glossy` so legacy Cycles glossy plastic keeps its strong
-  reflection without scaling scene lights.
+- Principled BSDF export includes IOR, coat weight/roughness, sheen, and
+  subsurface controls when those Blender sockets are available. Glossy and
+  anisotropic BSDF nodes export as Luz `glossy` materials, and Blender
+  Diffuse+Glossy `Mix Shader` graphs export as `diffuse_glossy` so legacy
+  Cycles glossy plastic keeps its strong reflection without scaling scene
+  lights.
 
 ## Current Limits
 

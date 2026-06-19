@@ -44,6 +44,11 @@ class LuzMaterial:
 	clearcoat: float
 	clearcoat_roughness: float
 	sheen: float
+	subsurface: float
+	subsurface_radius: tuple[float, float, float]
+	subsurface_scale: float
+	subsurface_color: tuple[float, float, float]
+	subsurface_method: str
 	glossy_color: tuple[float, float, float]
 	glossy_weight: float
 	emission_color: tuple[float, float, float]
@@ -651,6 +656,11 @@ def material_defaults(
 	clearcoat: float,
 	clearcoat_roughness: float,
 	sheen: float,
+	subsurface: float,
+	subsurface_radius: tuple[float, float, float],
+	subsurface_scale: float,
+	subsurface_color: tuple[float, float, float],
+	subsurface_method: str,
 	glossy_color: tuple[float, float, float],
 	glossy_weight: float,
 	emission_color: tuple[float, float, float],
@@ -667,6 +677,11 @@ def material_defaults(
 		"clearcoat": clearcoat,
 		"clearcoat_roughness": clearcoat_roughness,
 		"sheen": sheen,
+		"subsurface": subsurface,
+		"subsurface_radius": subsurface_radius,
+		"subsurface_scale": subsurface_scale,
+		"subsurface_color": subsurface_color,
+		"subsurface_method": subsurface_method,
 		"glossy_color": glossy_color,
 		"glossy_weight": glossy_weight,
 		"emission_color": emission_color,
@@ -770,6 +785,11 @@ def blend_material_values(
 			"clearcoat": 0.0,
 			"clearcoat_roughness": glossy["roughness"],
 			"sheen": 0.0,
+			"subsurface": 0.0,
+			"subsurface_radius": (1.0, 1.0, 1.0),
+			"subsurface_scale": 0.001,
+			"subsurface_color": (1.0, 1.0, 1.0),
+			"subsurface_method": "burley",
 			"glossy_color": glossy["glossy_color"],
 			"glossy_weight": max(0.0, min(1.0, glossy_weight)),
 			"emission_color": blend_color(first["emission_color"], second["emission_color"], factor),  # type: ignore[arg-type]
@@ -786,6 +806,11 @@ def blend_material_values(
 		"clearcoat": blend_scalar(float(first["clearcoat"]), float(second["clearcoat"]), factor),
 		"clearcoat_roughness": blend_scalar(float(first["clearcoat_roughness"]), float(second["clearcoat_roughness"]), factor),
 		"sheen": blend_scalar(float(first["sheen"]), float(second["sheen"]), factor),
+		"subsurface": blend_scalar(float(first["subsurface"]), float(second["subsurface"]), factor),
+		"subsurface_radius": blend_color(first["subsurface_radius"], second["subsurface_radius"], factor),  # type: ignore[arg-type]
+		"subsurface_scale": blend_scalar(float(first["subsurface_scale"]), float(second["subsurface_scale"]), factor),
+		"subsurface_color": blend_color(first["subsurface_color"], second["subsurface_color"], factor),  # type: ignore[arg-type]
+		"subsurface_method": first["subsurface_method"] if str(first["subsurface_method"]) == str(second["subsurface_method"]) else "burley",
 		"glossy_color": blend_color(first["glossy_color"], second["glossy_color"], factor),  # type: ignore[arg-type]
 		"glossy_weight": blend_scalar(float(first["glossy_weight"]), float(second["glossy_weight"]), factor),
 		"emission_color": blend_color(first["emission_color"], second["emission_color"], factor),  # type: ignore[arg-type]
@@ -844,6 +869,22 @@ def material_values_from_shader_node(
 		values["sheen"] = scalar_from_value(
 			socket_default_value(node, ("Sheen Weight", "Sheen"), values["sheen"]),
 			float(values["sheen"]),
+		)
+		values["subsurface"] = scalar_from_value(
+			socket_default_value(node, ("Subsurface Weight", "Subsurface"), values["subsurface"]),
+			float(values["subsurface"]),
+		)
+		values["subsurface_radius"] = color_from_value(
+			socket_default_value(node, ("Subsurface Radius",), values["subsurface_radius"]),
+			values["subsurface_radius"],  # type: ignore[arg-type]
+		)
+		values["subsurface_scale"] = scalar_from_value(
+			socket_default_value(node, ("Subsurface Scale",), values["subsurface_scale"]),
+			float(values["subsurface_scale"]),
+		)
+		values["subsurface_color"] = color_from_value(
+			socket_default_value(node, ("Subsurface Color",), values["subsurface_color"]),
+			values["subsurface_color"],  # type: ignore[arg-type]
 		)
 		values["emission_color"] = color_from_value(
 			socket_default_value(node, ("Emission Color", "Emission"), values["emission_color"]),
@@ -967,6 +1008,11 @@ def export_material(
 	clearcoat = 0.0
 	clearcoat_roughness = 0.03
 	sheen = 0.0
+	subsurface = 0.0
+	subsurface_radius = (1.0, 1.0, 1.0)
+	subsurface_scale = 0.001
+	subsurface_color = (1.0, 1.0, 1.0)
+	subsurface_method = "burley"
 	glossy_color = (1.0, 1.0, 1.0)
 	glossy_weight = 0.0
 	emission_color = (1.0, 1.0, 1.0)
@@ -996,6 +1042,11 @@ def export_material(
 					clearcoat,
 					clearcoat_roughness,
 					sheen,
+					subsurface,
+					subsurface_radius,
+					subsurface_scale,
+					subsurface_color,
+					subsurface_method,
 					glossy_color,
 					glossy_weight,
 					emission_color,
@@ -1012,6 +1063,11 @@ def export_material(
 			clearcoat = float(values["clearcoat"])
 			clearcoat_roughness = float(values["clearcoat_roughness"])
 			sheen = float(values["sheen"])
+			subsurface = float(values["subsurface"])
+			subsurface_radius = values["subsurface_radius"]  # type: ignore[assignment]
+			subsurface_scale = float(values["subsurface_scale"])
+			subsurface_color = values["subsurface_color"]  # type: ignore[assignment]
+			subsurface_method = str(values["subsurface_method"])
 			glossy_color = values["glossy_color"]  # type: ignore[assignment]
 			glossy_weight = float(values["glossy_weight"])
 			emission_color = values["emission_color"]  # type: ignore[assignment]
@@ -1056,6 +1112,11 @@ def export_material(
 		clearcoat=clearcoat,
 		clearcoat_roughness=clearcoat_roughness,
 		sheen=sheen,
+		subsurface=subsurface,
+		subsurface_radius=subsurface_radius,
+		subsurface_scale=subsurface_scale,
+		subsurface_color=subsurface_color,
+		subsurface_method=subsurface_method,
 		glossy_color=glossy_color,
 		glossy_weight=glossy_weight,
 		emission_color=emission_color,
@@ -1906,6 +1967,16 @@ def write_luz_scene(
 							f"sheen={fmt_float(material.sheen)}",
 						]
 					)
+					if material.subsurface > 0.0:
+						lines.extend(
+							[
+								f"subsurface={fmt_float(material.subsurface)}",
+								f"subsurface_method={material.subsurface_method}",
+								f"subsurface_radius={fmt_color(material.subsurface_radius)}",
+								f"subsurface_scale={fmt_float(material.subsurface_scale)}",
+								f"subsurface_color={fmt_blender_color(material.subsurface_color)}",
+							]
+						)
 			if material.texture_path:
 				lines.append(f"texture={material.texture_path}")
 			lines.append("}")
