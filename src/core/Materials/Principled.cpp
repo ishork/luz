@@ -11,6 +11,9 @@
 
 namespace
 {
+	constexpr double	DELTA_ROUGHNESS = 1e-4;
+	constexpr double	FULL_TRANSMISSION_EPSILON = 1e-6;
+
 	enum Component
 	{
 		COMPONENT_DIFFUSE,
@@ -102,6 +105,38 @@ namespace
 	Vector3	viewDirection(const Ray& ray, const HitRecord& hitRecord)
 	{
 		return (BSDF::safeNormalize(ray.getDirection() * -1.0, hitRecord.normal));
+	}
+
+	bool	isSmoothFullTransmission(
+		double metallic,
+		double roughness,
+		double transmission,
+		double clearcoat,
+		double sheen,
+		double subsurface
+	)
+	{
+		return (
+			metallic <= FULL_TRANSMISSION_EPSILON
+			&& roughness <= DELTA_ROUGHNESS
+			&& transmission >= 1.0 - FULL_TRANSMISSION_EPSILON
+			&& clearcoat <= FULL_TRANSMISSION_EPSILON
+			&& sheen <= FULL_TRANSMISSION_EPSILON
+			&& subsurface <= FULL_TRANSMISSION_EPSILON
+		);
+	}
+
+	void	setMediumAbsorption(
+		ScatterRecord& scatterRecord,
+		double transmission,
+		Color absorptionCoefficient
+	)
+	{
+		scatterRecord.hasMediumAbsorption = (
+			transmission > 0.0
+			&& hasPositiveChannel(absorptionCoefficient)
+		);
+		scatterRecord.mediumAbsorptionCoefficient = absorptionCoefficient;
 	}
 
 	double	diffuseScale(
@@ -363,6 +398,43 @@ namespace
 		}
 		return (refracted);
 	}
+
+	void	scatterSmoothTransmission(
+		const Ray& ray,
+		const HitRecord& hitRecord,
+		ScatterRecord& scatterRecord,
+		Color baseColor,
+		double refractiveIndex
+	)
+	{
+		const Vector3 normalizedDirection = ray.getDirection();
+		const Vector3 view = viewDirection(ray, hitRecord);
+		const double etaI = hitRecord.frontFace ? 1.0 : refractiveIndex;
+		const double etaT = hitRecord.frontFace ? refractiveIndex : 1.0;
+		const double refractionRatio = etaI / etaT;
+		const double cosTheta = std::min(1.0, Utilities::dot(view, hitRecord.normal));
+		const double sinTheta = std::sqrt(std::max(0.0, 1.0 - cosTheta * cosTheta));
+		const bool cannotRefract = refractionRatio * sinTheta > 1.0;
+		Vector3 direction;
+
+		if (
+			cannotRefract
+			|| BSDF::dielectricFresnel(cosTheta, etaI, etaT) > Sampler::sample1D(Sampler::DIM_MATERIAL_DECISION)
+		)
+		{
+			direction = Utilities::reflect(normalizedDirection, hitRecord.normal);
+			scatterRecord.attenuation = Color(1.0, 1.0, 1.0);
+		}
+		else
+		{
+			direction = Utilities::refract(normalizedDirection, hitRecord.normal, refractionRatio);
+			scatterRecord.attenuation = baseColor;
+		}
+
+		scatterRecord.isSpecular = true;
+		scatterRecord.pdfType = SCATTER_PDF_NONE;
+		scatterRecord.specularRay = Ray(hitRecord.position, direction);
+	}
 }
 
 Principled::Principled(void)
@@ -596,6 +668,27 @@ void	Principled::setTransmittance(Color transmittance, double distanceMeters)
 bool	Principled::scatter(Ray& ray, HitRecord& hitRecord, ScatterRecord& scatterRecord)
 {
 	const Color baseColor = BSDF::clampColor01(this->colorAt(hitRecord));
+
+	setMediumAbsorption(scatterRecord, this->_transmission, this->_absorptionCoefficient);
+	if (isSmoothFullTransmission(
+		this->_metallic,
+		this->_roughness,
+		this->_transmission,
+		this->_clearcoat,
+		this->_sheen,
+		this->_subsurface
+	))
+	{
+		scatterSmoothTransmission(
+			ray,
+			hitRecord,
+			scatterRecord,
+			baseColor,
+			this->_refractiveIndex
+		);
+		return (true);
+	}
+
 	const ComponentWeights weights = componentWeights(
 		baseColor,
 		this->_metallic,
@@ -653,15 +746,6 @@ bool	Principled::scatter(Ray& ray, HitRecord& hitRecord, ScatterRecord& scatterR
 		return (false);
 	}
 
-	scatterRecord.hasMediumAbsorption = (
-		this->_transmission > 0.0
-		&& (
-			this->_absorptionCoefficient.getRed() > 0.0
-			|| this->_absorptionCoefficient.getGreen() > 0.0
-			|| this->_absorptionCoefficient.getBlue() > 0.0
-		)
-	);
-	scatterRecord.mediumAbsorptionCoefficient = this->_absorptionCoefficient;
 	scatterRecord.incidentRay = ray;
 	scatterRecord.sampledDirection = direction;
 	scatterRecord.sampledPDF = pdf;

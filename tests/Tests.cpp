@@ -2953,6 +2953,41 @@ namespace
 		require(BSDF::maxChannel(bsdfCos) > 0.0, "Principled BSDF cosine was zero.");
 	}
 
+	void	testSmoothTransmissivePrincipledUsesDeltaScatter(void)
+	{
+		Principled glass(Color(0.8, 0.9, 1.0), 0.0, 0.0, 1.0, 1.5, 0.0, 0.03, 0.0);
+		Ray ray(Vector3(0.0, 0.0, 1.0), Vector3(0.0, 0.0, -1.0));
+		HitRecord hitRecord;
+		ScatterRecord scatterRecord;
+
+		hitRecord.position = Vector3(0.0, 0.0, 0.0);
+		hitRecord.normal = Vector3(0.0, 0.0, 1.0);
+		hitRecord.frontFace = true;
+		glass.setAbsorptionCoefficient(Color(0.1, 0.2, 0.3));
+		Sampler::setRenderSeed(2030);
+		Sampler::beginPixelSample(31, 37, 41);
+		require(glass.scatter(ray, hitRecord, scatterRecord), "Smooth transmissive principled material did not scatter.");
+		Sampler::endPixelSample();
+
+		require(scatterRecord.isSpecular, "Smooth transmissive principled material did not use delta scatter.");
+		require(scatterRecord.pdfType == SCATTER_PDF_NONE, "Smooth transmissive principled material used a sampled BSDF PDF.");
+		require(scatterRecord.sampledPDF == 0.0, "Smooth transmissive principled material left a sampled PDF.");
+		require(scatterRecord.bsdfMaterial == nullptr, "Smooth transmissive principled material stored a BSDF material.");
+		require(scatterRecord.hasMediumAbsorption, "Smooth transmissive principled material did not carry absorption.");
+		requireColorNear(
+			scatterRecord.mediumAbsorptionCoefficient,
+			Color(0.1, 0.2, 0.3),
+			"Smooth transmissive principled absorption changed."
+		);
+		require(
+			std::isfinite(scatterRecord.specularRay.getDirection().getX())
+			&& std::isfinite(scatterRecord.specularRay.getDirection().getY())
+			&& std::isfinite(scatterRecord.specularRay.getDirection().getZ()),
+			"Smooth transmissive principled produced an invalid specular direction."
+		);
+		requireFiniteNonNegativeColor(scatterRecord.attenuation, "Smooth transmissive principled throughput");
+	}
+
 	void	testPrincipledSubsurfaceControls(void)
 	{
 		Principled burley(Color(0.8, 0.42, 0.28), 0.0, 0.5);
@@ -4897,6 +4932,7 @@ int	main(void)
 		testDiffuseGlossyMixPreservesStrongGlossyComponent();
 		testRoughDielectricUsesGGXBSDF();
 		testPrincipledLayeredBSDF();
+		testSmoothTransmissivePrincipledUsesDeltaScatter();
 		testPrincipledSubsurfaceControls();
 		testSceneFileLoadsNamedTexturedSphere();
 		testSceneFileLoadsVolumeBlock();
