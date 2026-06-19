@@ -17,7 +17,11 @@ class	Image
 		void		setHeight(std::size_t height);
 		Color		getPixel(std::size_t x, std::size_t y) const;
 		void		setPixel(std::size_t x, std::size_t y, Color color);
+		Color		getPixelUnchecked(std::size_t x, std::size_t y) const;
+		void		setPixelUnchecked(std::size_t x, std::size_t y, Color color);
 		const SmartArray<Color>&	data(void) const;
+		Color*		pixels(void);
+		const Color*	pixels(void) const;
 		void		saveToBMP(const std::string &filename) const;
 		void		saveToTIFF(const std::string &filename) const;
 		void		saveToPNG(const std::string &filename) const;
@@ -30,6 +34,7 @@ class	Image
 		void		applyContrast(double contrast);
 		void		gammaCorrect(void);
 		void		toneMap(void);
+		void		toneMapAndGammaCorrect(void);
 		void		suppressIsolatedFireflies(void);
 		std::unique_ptr<Image>	extractBloom(double threshold, double softKnee) const;
 		std::unique_ptr<Image>	extractBrightness(void) const;

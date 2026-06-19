@@ -301,15 +301,16 @@ namespace
 		{
 			return (false);
 		}
+		const MaterialType type = material->getType();
 		if (
-			material->getType() == DIELECTRIC
-			|| material->getType() == ISOTROPIC
-			|| material->getType() == HENYEY_GREENSTEIN
+			type == DIELECTRIC
+			|| type == ISOTROPIC
+			|| type == HENYEY_GREENSTEIN
 		)
 		{
 			return (true);
 		}
-		if (material->getType() != PRINCIPLED)
+		if (type != PRINCIPLED)
 		{
 			return (false);
 		}

@@ -74,7 +74,7 @@ namespace
 				{
 					continue;
 				}
-				const double neighborLuminance = sceneLuminance(image.getPixel(
+				const double neighborLuminance = sceneLuminance(image.getPixelUnchecked(
 					static_cast<std::size_t>(sampleX),
 					static_cast<std::size_t>(sampleY)
 				));
@@ -156,7 +156,7 @@ namespace
 		constexpr unsigned int MIN_SIMILAR_SUPPORT = 4;
 		constexpr unsigned int MIN_BRIGHT_SUPPORT = 6;
 		constexpr unsigned int MIN_SATURATED_SUPPORT = 3;
-		const Color pixel = image.getPixel(x, y);
+		const Color pixel = image.getPixelUnchecked(x, y);
 		const double luminance = sceneLuminance(pixel);
 		const bool saturatedCandidate = isUnsupportedSaturatedDisplayPixel(pixel);
 
@@ -189,7 +189,7 @@ namespace
 					continue;
 				}
 
-				const Color neighbor = image.getPixel(
+				const Color neighbor = image.getPixelUnchecked(
 					static_cast<std::size_t>(sampleX),
 					static_cast<std::size_t>(sampleY)
 				);
@@ -284,7 +284,7 @@ Color	Image::getPixel(std::size_t x, std::size_t y) const
 		throw std::out_of_range("Index out of range");
 	}
 
-	return (this->_pixels[y * this->_width + x]);
+	return (this->getPixelUnchecked(x, y));
 }
 
 void	Image::setPixel(std::size_t x, std::size_t y, Color color)
@@ -294,7 +294,17 @@ void	Image::setPixel(std::size_t x, std::size_t y, Color color)
 		throw std::out_of_range("Index out of range");
 	}
 
-	this->_pixels[y * this->_width + x] = color;
+	this->setPixelUnchecked(x, y, color);
+}
+
+Color	Image::getPixelUnchecked(std::size_t x, std::size_t y) const
+{
+	return (this->_pixels.unchecked(y * this->_width + x));
+}
+
+void	Image::setPixelUnchecked(std::size_t x, std::size_t y, Color color)
+{
+	this->_pixels.unchecked(y * this->_width + x) = color;
 }
 
 void	Image::saveToBMP(const std::string &fileName) const
@@ -336,6 +346,16 @@ const SmartArray<Color>&	Image::data(void) const
 	return (this->_pixels);
 }
 
+Color*	Image::pixels(void)
+{
+	return (this->_pixels.data());
+}
+
+const Color*	Image::pixels(void) const
+{
+	return (this->_pixels.data());
+}
+
 Color&	Image::operator[](std::size_t index)
 {
 	_checkInitialized();
@@ -352,7 +372,7 @@ Color&	Image::at(std::size_t index)
 		throw std::out_of_range("Index out of range");
 	}
 
-	return (this->_pixels[index]);
+	return (this->_pixels.unchecked(index));
 }
 
 // Initializes the image's underlying container
@@ -381,7 +401,7 @@ Image&	Image::operator+=(const Image& other)
 
 	for (std::size_t i = 0; i < this->_width * this->_height; i++)
 	{
-		this->_pixels[i] += other._pixels[i];
+		this->_pixels.unchecked(i) += other._pixels.unchecked(i);
 	}
 
 	return (*this);
@@ -403,7 +423,7 @@ void	Image::fill(Color color)
 {
 	for (std::size_t i = 0; i < this->_pixels.getCapacity(); i++)
 	{
-		this->_pixels[i] = color;
+		this->_pixels.unchecked(i) = color;
 	}
 }
 
@@ -422,7 +442,7 @@ void	Image::applyExposure(double exposure)
 
 	for (std::size_t i = 0; i < this->_pixels.getCapacity(); i++)
 	{
-		this->_pixels[i] = scaleColor(ColorManagement::sanitizeSceneLinear(this->_pixels[i]), exposureScale);
+		this->_pixels.unchecked(i) = scaleColor(ColorManagement::sanitizeSceneLinear(this->_pixels.unchecked(i)), exposureScale);
 	}
 }
 
@@ -436,7 +456,7 @@ void	Image::applyContrast(double contrast)
 	constexpr double pivot = 0.5;
 	for (std::size_t i = 0; i < this->_pixels.getCapacity(); i++)
 	{
-		Color& pixel = this->_pixels[i];
+		Color& pixel = this->_pixels.unchecked(i);
 
 		pixel = Color(
 			clampUnit(((pixel.getRed() - pivot) * contrast) + pivot),
@@ -463,7 +483,7 @@ void	Image::suppressIsolatedFireflies(void)
 	{
 		for (std::size_t x = 0; x < this->_width; x++)
 		{
-			this->setPixel(x, y, suppressDisplayFirefly(source, x, y));
+			this->setPixelUnchecked(x, y, suppressDisplayFirefly(source, x, y));
 		}
 	}
 }
@@ -476,7 +496,7 @@ void	Image::gammaCorrect(void)
 	}
 	for (std::size_t i = 0; i < this->_pixels.getCapacity(); i++)
 	{
-		Color& pixel = this->_pixels[i];
+		Color& pixel = this->_pixels.unchecked(i);
 
 		if (this->_colorEncoding == ImageColorEncoding::SceneLinearACEScg)
 		{
@@ -498,11 +518,35 @@ void	Image::toneMap(void)
 	}
 	for (std::size_t i = 0; i < this->_pixels.getCapacity(); i++)
 	{
-		Color& pixel = this->_pixels[i];
+		Color& pixel = this->_pixels.unchecked(i);
 
 		pixel = ColorManagement::displayTransformToLinearSRGB(ColorManagement::sanitizeSceneLinear(pixel));
 	}
 	this->_colorEncoding = ImageColorEncoding::DisplayLinearSRGB;
+}
+
+void	Image::toneMapAndGammaCorrect(void)
+{
+	if (this->_colorEncoding == ImageColorEncoding::DisplayEncodedSRGB)
+	{
+		return;
+	}
+	if (this->_colorEncoding != ImageColorEncoding::SceneLinearACEScg)
+	{
+		this->gammaCorrect();
+		return;
+	}
+	for (std::size_t i = 0; i < this->_pixels.getCapacity(); i++)
+	{
+		Color& pixel = this->_pixels.unchecked(i);
+
+		pixel = ColorManagement::encodeSRGB(
+			ColorManagement::displayTransformToLinearSRGB(
+				ColorManagement::sanitizeSceneLinear(pixel)
+			)
+		);
+	}
+	this->_colorEncoding = ImageColorEncoding::DisplayEncodedSRGB;
 }
 
 std::unique_ptr<Image>	Image::extractBloom(double threshold, double softKnee) const
@@ -527,7 +571,7 @@ std::unique_ptr<Image>	Image::extractBloom(double threshold, double softKnee) co
 				*this,
 				x,
 				y,
-				ColorManagement::sanitizeSceneLinear(this->getPixel(x, y)),
+				ColorManagement::sanitizeSceneLinear(this->getPixelUnchecked(x, y)),
 				threshold
 			);
 			const double luminance = Utilities::luminance(pixel);
@@ -541,7 +585,7 @@ std::unique_ptr<Image>	Image::extractBloom(double threshold, double softKnee) co
 			}
 
 			const double weight = luminance > 0.0 ? contribution / luminance : 0.0;
-			brightnessImage->setPixel(x, y, scaleColor(pixel, weight));
+			brightnessImage->setPixelUnchecked(x, y, scaleColor(pixel, weight));
 		}
 	}
 

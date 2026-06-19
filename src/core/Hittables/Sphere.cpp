@@ -98,6 +98,15 @@ namespace
 		}
 		setLatLongUV(outwardNormal, hitRecord);
 	}
+
+	bool	zeroDirection(const Vector3& direction)
+	{
+		return (
+			direction.getX() == 0.0
+			&& direction.getY() == 0.0
+			&& direction.getZ() == 0.0
+		);
+	}
 }
 
 /*
@@ -222,11 +231,16 @@ bool	Sphere::hit(Ray& ray, HitRecord& hitRecord, double t_min, double t_max) con
 		return (false);
 	}
 
+	const Vector3& direction = ray.getDirection();
+	if (zeroDirection(direction))
+	{
+		return (false);
+	}
+
 	Vector3 oc = ray.getOrigin() - this->_position;
-	double a = Utilities::dot(ray.getDirection(), ray.getDirection());
-	double b = Utilities::dot(oc, ray.getDirection());
+	double b = Utilities::dot(oc, direction);
 	double c = Utilities::dot(oc, oc) - (this->_radius * this->_radius);
-	double discriminant = (b * b) - (a * c);
+	double discriminant = (b * b) - c;
 
 	if (discriminant < 0.0)
 	{
@@ -234,10 +248,10 @@ bool	Sphere::hit(Ray& ray, HitRecord& hitRecord, double t_min, double t_max) con
 	}
 
 	double sqrtd = sqrt(discriminant);
-	double root = (-b - sqrtd) / a;
+	double root = -b - sqrtd;
 	if (root < t_min || root > t_max)
 	{
-		root = (-b + sqrtd) / a;
+		root = -b + sqrtd;
 		if (root < t_min || root > t_max)
 		{
 			return (false);
@@ -246,7 +260,7 @@ bool	Sphere::hit(Ray& ray, HitRecord& hitRecord, double t_min, double t_max) con
 
 	hitRecord.t0 = root;
 	hitRecord.position = ray.pointAtRay(root);
-	const Vector3 outwardNormal = Utilities::normalize((hitRecord.position - this->_position) / this->_radius);
+	const Vector3 outwardNormal = (hitRecord.position - this->_position) / this->_radius;
 	setSphereUV(outwardNormal, this->_uvProjection, hitRecord);
 	hitRecord.setFaceNormal(ray, outwardNormal);
 	hitRecord.material = this->_material.get();
@@ -261,11 +275,16 @@ bool	Sphere::hitAny(Ray& ray, double t_min, double t_max) const
 		return (false);
 	}
 
+	const Vector3& direction = ray.getDirection();
+	if (zeroDirection(direction))
+	{
+		return (false);
+	}
+
 	Vector3 oc = ray.getOrigin() - this->_position;
-	double a = Utilities::dot(ray.getDirection(), ray.getDirection());
-	double b = Utilities::dot(oc, ray.getDirection());
+	double b = Utilities::dot(oc, direction);
 	double c = Utilities::dot(oc, oc) - (this->_radius * this->_radius);
-	double discriminant = (b * b) - (a * c);
+	double discriminant = (b * b) - c;
 
 	if (discriminant < 0.0)
 	{
@@ -273,31 +292,36 @@ bool	Sphere::hitAny(Ray& ray, double t_min, double t_max) const
 	}
 
 	double sqrtd = sqrt(discriminant);
-	double root = (-b - sqrtd) / a;
+	double root = -b - sqrtd;
 	if (root >= t_min && root <= t_max)
 	{
 		return (true);
 	}
-	root = (-b + sqrtd) / a;
+	root = -b + sqrtd;
 	return (root >= t_min && root <= t_max);
 }
 
 bool	Sphere::hitInterval(Ray& ray, double t_min, double t_max, double& t0, double& t1) const
 {
-	Vector3 oc = ray.getOrigin() - this->_position;
-	double a = Utilities::dot(ray.getDirection(), ray.getDirection());
-	double b = Utilities::dot(oc, ray.getDirection());
-	double c = Utilities::dot(oc, oc) - (this->_radius * this->_radius);
-	double discriminant = (b * b) - (a * c);
+	const Vector3& direction = ray.getDirection();
+	if (zeroDirection(direction))
+	{
+		return (false);
+	}
 
-	if (a <= 0.0 || discriminant < 0.0)
+	Vector3 oc = ray.getOrigin() - this->_position;
+	double b = Utilities::dot(oc, direction);
+	double c = Utilities::dot(oc, oc) - (this->_radius * this->_radius);
+	double discriminant = (b * b) - c;
+
+	if (discriminant < 0.0)
 	{
 		return (false);
 	}
 
 	const double sqrtd = sqrt(discriminant);
-	double root0 = (-b - sqrtd) / a;
-	double root1 = (-b + sqrtd) / a;
+	double root0 = -b - sqrtd;
+	double root1 = -b + sqrtd;
 	if (root0 > root1)
 	{
 		std::swap(root0, root1);
