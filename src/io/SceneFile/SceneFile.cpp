@@ -113,7 +113,10 @@ void	SceneFile::read(Scene& scene, std::string fileName)
 
 	for (const std::shared_future<std::shared_ptr<Hittable>>& pendingMeshLoad : context.pendingMeshLoads)
 	{
-		pendingMeshLoad.get();
+		// .get() is called for its blocking side-effect (waiting for the async
+		// mesh load to finish). The returned shared_ptr is already captured in
+		// the scene graph; cast to void to satisfy -Werror nodiscard.
+		(void)pendingMeshLoad.get();
 	}
 	scene.syncAtmosphereSunDirection();
 }
